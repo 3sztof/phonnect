@@ -30,6 +30,8 @@ class Config:
     content_scale: int = 100
     # Button bar docked to the right of each mirror window.
     show_sidebar: bool = True
+    # Reopen each phone's window where it was, at the same height, without black bars (Windows).
+    remember_window: bool = True
     # Ask GitHub once a day whether Phonnect or scrcpy has a new release (shown in the tray menu).
     check_updates: bool = True
     # When mDNS and the last address fail, look for a phone's new Wireless debugging port by

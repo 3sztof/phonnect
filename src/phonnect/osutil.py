@@ -79,6 +79,93 @@ def focus_process_window(pid: int) -> bool:
     return True
 
 
+class _WindowDpiContext:
+    """Read and set another app's window in that window's own coordinates (Windows).
+
+    scrcpy's --window-x/-y/-width/-height use the coordinates scrcpy itself sees; with display
+    scaling those differ from ours unless we switch this thread to the window's DPI mode.
+    """
+
+    def __init__(self, hwnd: int):
+        self.hwnd, self.old = hwnd, None
+
+    def __enter__(self):
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        try:
+            user32.GetWindowDpiAwarenessContext.restype = ctypes.c_void_p
+            user32.SetThreadDpiAwarenessContext.restype = ctypes.c_void_p
+            user32.SetThreadDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+            ctx = user32.GetWindowDpiAwarenessContext(self.hwnd)
+            if ctx:
+                self.old = user32.SetThreadDpiAwarenessContext(ctx)
+        except AttributeError:  # Windows before 10 1607: one DPI mode for everything
+            pass
+        return self
+
+    def __exit__(self, *exc):
+        if self.old:
+            import ctypes
+
+            ctypes.windll.user32.SetThreadDpiAwarenessContext(self.old)
+
+
+def window_client_rect(hwnd: int) -> tuple[int, int, int, int] | None:
+    """Content area of a normal (not minimized or maximized) window as x, y, width, height (Windows)."""
+    if not IS_WINDOWS or not hwnd:
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    if not user32.IsWindow(hwnd) or user32.IsIconic(hwnd) or user32.IsZoomed(hwnd):
+        return None
+    with _WindowDpiContext(hwnd):
+        rect, origin = wintypes.RECT(), wintypes.POINT(0, 0)
+        if not user32.GetClientRect(hwnd, ctypes.byref(rect)) or not user32.ClientToScreen(hwnd, ctypes.byref(origin)):
+            return None
+    if rect.right <= 0 or rect.bottom <= 0:
+        return None
+    return origin.x, origin.y, rect.right, rect.bottom
+
+
+def set_window_client_size(hwnd: int, width: int, height: int) -> bool:
+    """Resize a window so its content area is width x height, keeping its top-left corner (Windows)."""
+    if not IS_WINDOWS or not hwnd:
+        return False
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    with _WindowDpiContext(hwnd):
+        outer, inner = wintypes.RECT(), wintypes.RECT()
+        if not user32.GetWindowRect(hwnd, ctypes.byref(outer)) or not user32.GetClientRect(hwnd, ctypes.byref(inner)):
+            return False
+        extra_w = (outer.right - outer.left) - inner.right  # borders and title bar
+        extra_h = (outer.bottom - outer.top) - inner.bottom
+        SWP_NOMOVE, SWP_NOZORDER, SWP_NOACTIVATE = 0x2, 0x4, 0x10
+        return bool(
+            user32.SetWindowPos(
+                hwnd, 0, 0, 0, width + extra_w, height + extra_h, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE
+            )
+        )
+
+
+def point_on_a_screen(x: int, y: int) -> bool:
+    """Whether a point is on a connected monitor (Windows; elsewhere assumed yes)."""
+    if not IS_WINDOWS:
+        return True
+    import ctypes
+    from ctypes import wintypes
+
+    MONITOR_DEFAULTTONULL = 0
+    user32 = ctypes.windll.user32
+    user32.MonitorFromPoint.restype = ctypes.c_void_p
+    user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+    return bool(user32.MonitorFromPoint(wintypes.POINT(x, y), MONITOR_DEFAULTTONULL))
+
+
 # Linux terminals and how each one takes a command to run.
 LINUX_TERMINALS = (
     ("x-terminal-emulator", ["-e"]),

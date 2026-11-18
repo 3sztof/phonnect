@@ -19,6 +19,7 @@ Settings                              >  Auto-launch on USB
                                          Keep Wi-Fi connected after closing the window
                                          Find a Wi-Fi phone's new port by scanning it
                                          Show sidebar next to the window
+                                         Reopen windows where they were (Windows)
                                          Hide phone keyboard while mirroring
                                          Mouse buttons >  Right click / Middle click / Side buttons
                                          Start at login
@@ -123,6 +124,10 @@ On by default. scrcpy acts as a physical keyboard, so Android hides the on-scree
 
 If typing comes out in the wrong layout, set it once on the phone: *Settings → System → Keyboard → Physical keyboard*. With a mirror window open, **Alt+K** jumps there. Changing this setting reopens an open window.
 
+### Window size and position
+
+On Windows, each phone's window opens where you left it last time, at the same height, for portrait and landscape separately (desktop mode has its own). The width always follows the phone's picture, so there are no black bars at the sides. If a window opens with bars anyway (scrcpy's first guess on wide screens), Phonnect trims them as soon as the picture arrives. If the remembered spot is on a monitor that's no longer there, the window opens at scrcpy's default position, keeping its size. Turn it off with **Settings → Reopen windows where they were**. On macOS and Linux, scrcpy picks the size and position.
+
 ### Inside the mirror window
 
 Everything scrcpy offers works as usual:
@@ -164,6 +169,7 @@ Settings changed in the tray are saved immediately. You can also edit the file d
   "keep_wifi_connected": false,
   "content_scale": 100,
   "show_sidebar": true,
+  "remember_window": true,
   "check_updates": true,
   "wifi_port_scan": true,
   "desktop_display": "1920x1080/160",
@@ -186,13 +192,3 @@ Settings changed in the tray are saved immediately. You can also edit the file d
 | `adb_path`, `scrcpy_path` | Set these if the tools aren't found automatically |
 
 ## File locations
-
-| | Windows | macOS | Linux |
-|---|---|---|---|
-| Settings | `%LOCALAPPDATA%\phonnect\config.json` | `~/Library/Application Support/phonnect/config.json` | `~/.config/phonnect/config.json` |
-| Log, remembered phones, icons | same folder | same folder | `~/.local/state/phonnect/` |
-| Start at login | `shell:startup\Phonnect.lnk` | `~/Library/LaunchAgents/io.github.3sztof.phonnect.plist` | `~/.config/autostart/phonnect.desktop` |
-| App menu entry | Start menu: `Phonnect.lnk` | `~/Applications/Phonnect.app` (Spotlight, Launchpad) | `~/.local/share/applications/phonnect.desktop` |
-| App | `uv tool dir` | `uv tool dir` | `uv tool dir` |
-
-The log is capped at about 2 MB.

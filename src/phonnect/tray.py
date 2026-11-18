@@ -378,6 +378,12 @@ class TrayApp:
                     checked=lambda _: self.config.show_sidebar,
                 ),
                 Item(
+                    "Reopen windows where they were",
+                    self._toggle_window_memory,
+                    checked=lambda _: self.config.remember_window,
+                    visible=IS_WINDOWS,
+                ),
+                Item(
                     "Hide phone keyboard while mirroring",
                     self._toggle("hide_phone_keyboard", restart=True),
                     checked=lambda _: self.config.hide_phone_keyboard,
@@ -542,6 +548,16 @@ class TrayApp:
         self.icon.update_menu()
         if self.watcher:
             self.watcher.apply_sidebar_setting()
+
+    def _toggle_window_memory(self, *_):
+        self.config.remember_window = not self.config.remember_window
+        self.config.save()
+        log.info("Setting remember_window = %s", self.config.remember_window)
+        self.icon.update_menu()
+        if self.watcher:
+            from phonnect.window_memory import WindowMemory
+
+            self.watcher.windows = WindowMemory() if self.config.remember_window else None
 
     def _toggle_landscape(self, *_):
         self.config.force_landscape = not self.config.force_landscape

@@ -60,6 +60,10 @@ def attach_helpers(watcher):
     except OSError as exc:
         log.warning("Sidebars are unavailable (could not open a local port): %s", exc)
     watcher.style_windows = True
+    if IS_WINDOWS and Config.load().remember_window:
+        from phonnect.window_memory import WindowMemory
+
+        watcher.windows = WindowMemory()
 
 
 def legacy_startup_entry() -> Path | None:

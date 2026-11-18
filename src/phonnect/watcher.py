@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 import threading
 import time
@@ -48,6 +49,20 @@ class Session:
     sidebar: subprocess.Popen | None = None
 
 
+@dataclass
+class TrackedWindow:
+    """A scrcpy window whose place is remembered (and black bars trimmed once it opens)."""
+
+    key: str  # WindowMemory key: the phone, or the phone's desktop
+    proc: subprocess.Popen
+    video: tuple[int, int] | None = None  # the picture's size, from scrcpy's "Texture: WxH"
+    trimmed: bool = False
+    checks: int = 0
+
+
+TEXTURE_RE = re.compile(r"Texture: (\d+)x(\d+)")
+
+
 class Watcher:
     def __init__(
         self,
@@ -68,6 +83,7 @@ class Watcher:
         self.known = known  # wireless.KnownDevices, optional
         self.rotation = None  # phone_state.RotationKeeper, optional (set by the tray)
         self.density = None  # phone_state.DensityKeeper, optional (set by the tray)
+        self.windows = None  # window_memory.WindowMemory, optional (set by the tray; Windows only)
         self.control: tuple[str, str] | None = None  # (address, token) of the control server
         self.style_windows = False  # match scrcpy's title bar to the OS theme (set by the tray)
         self.on_quit: Callable[[], None] | None = None  # how a "quit" control request ends the app
@@ -84,6 +100,8 @@ class Watcher:
         self.sessions: dict[str, Session] = {}
         # Desktop mode windows (a second scrcpy on a virtual display), per phone.
         self.desktops: dict[str, subprocess.Popen] = {}
+        # Windows whose place is remembered, by scrcpy's pid.
+        self._tracked: dict[int, TrackedWindow] = {}
         self._warned_usb_off: set[str] = set()
         # Phones whose window the user closed: not auto-launched over Wi-Fi again
         # (adb may silently reconnect them via mDNS) until clicked or plugged in.
@@ -109,6 +127,10 @@ class Watcher:
                 self.tick()
             except Exception:
                 log.exception("Unexpected error in watcher loop")
+            try:
+                self.follow_windows()
+            except Exception:
+                log.exception("Following the mirror windows failed")
             self._stop.wait(self.config.poll_interval)
         log.info("Watcher stopped")
 
@@ -237,9 +259,13 @@ class Watcher:
                 return f"could not start scrcpy: {exc}"
             self.desktops[hw_id] = proc
             log.info("Desktop mode started for %s (pid %s): %s", dev.label, proc.pid, " ".join(args[1:]))
+        tracked = self._track(self.windows.key(hw_id, desktop=True), proc) if self.windows else None
         if proc.stdout is not None:
             threading.Thread(
-                target=self._pump_output, args=(proc, f"{serial} desktop"), name="desktop-output", daemon=True
+                target=self._pump_output,
+                args=(proc, f"{serial} desktop", self._scrcpy_output(tracked)),
+                name="desktop-output",
+                daemon=True,
             ).start()
         if self.style_windows:
             threading.Thread(target=self._style_window, args=(proc.pid,), name="style", daemon=True).start()
@@ -259,6 +285,7 @@ class Watcher:
         if self.config.hide_phone_keyboard and (self.scrcpy_version is None or self.scrcpy_version >= (2, 4)):
             args.append("--keyboard=uhid")
         args += self._mouse_args(args)
+        args += self._window_args(dev, args, desktop=True)
         return args
 
     def _mouse_args(self, args: list[str]) -> list[str]:
@@ -518,7 +545,67 @@ class Watcher:
         if self.scrcpy_version is not None and self.scrcpy_version < (2, 0):
             # scrcpy 1.x has no audio support (and no --no-audio flag).
             args = [a for a in args if not a.startswith(("--no-audio", "--audio"))]
+        args += self._window_args(dev, args)
         return args
+
+    def _window_args(self, dev: Device, args: list[str], desktop: bool = False) -> list[str]:
+        """Reopen the window where it was last time, unless scrcpy_args already place it."""
+        if self.windows is None or any(
+            a.startswith(("--window-x", "--window-y", "--window-h", "--window-w")) for a in args
+        ):
+            return []
+        hw = self.hw_ids.get(dev.serial, dev.serial)
+        landscape = desktop or self.config.force_landscape
+        return self.windows.launch_args(self.windows.key(hw, desktop), landscape)
+
+    # ── remembered window places (Windows) ───────────────────────────────────
+
+    def _track(self, key: str, proc: subprocess.Popen) -> TrackedWindow | None:
+        if self.windows is None:
+            return None
+        tracked = TrackedWindow(key=key, proc=proc)
+        with self._lock:
+            self._tracked[proc.pid] = tracked
+        return tracked
+
+    def follow_windows(self) -> None:
+        """Remember where each window is, and trim black bars once the picture size is known."""
+        if self.windows is None:
+            return
+        from phonnect.osutil import find_process_window, set_window_client_size, window_client_rect
+        from phonnect.window_memory import fitted_width
+
+        with self._lock:
+            tracked = list(self._tracked.items())
+        for pid, t in tracked:
+            if t.proc.poll() is not None:
+                with self._lock:
+                    self._tracked.pop(pid, None)
+                continue
+            rect = window_client_rect(find_process_window(pid) or 0)
+            if rect is None:
+                continue
+            x, y, width, height = rect
+            if not t.trimmed and t.video is not None:
+                t.checks += 1
+                width_fit = fitted_width(width, height, *t.video)
+                if width_fit is not None:
+                    log.info("Trimming black bars: window %sx%s -> %sx%s", width, height, width_fit, height)
+                    set_window_client_size(find_process_window(pid) or 0, width_fit, height)
+                    continue  # remember it at the next look, once Windows has resized it
+                t.trimmed = True
+            if t.trimmed and self.windows.remember(t.key, x, y, width, height):
+                log.debug("Window %s now at %s,%s %sx%s", t.key, x, y, width, height)
+
+    def _scrcpy_output(self, tracked: TrackedWindow | None):
+        def on_line(line: str) -> None:
+            if tracked is not None and (m := TEXTURE_RE.search(line)):
+                video = (int(m.group(1)), int(m.group(2)))
+                if video != tracked.video:
+                    tracked.video = video
+                    tracked.trimmed = False  # rotated: check the bars again for the new shape
+
+        return on_line
 
     def _audio_args(self) -> list[str]:
         mode = self.config.audio
@@ -588,9 +675,13 @@ class Watcher:
         self._spawn_sidebar(session)
         if self.style_windows:
             threading.Thread(target=self._style_window, args=(proc.pid,), name="style", daemon=True).start()
+        tracked = self._track(hw, proc)
         if proc.stdout is not None:
             threading.Thread(
-                target=self._pump_output, args=(proc, dev.serial), name="scrcpy-output", daemon=True
+                target=self._pump_output,
+                args=(proc, dev.serial, self._scrcpy_output(tracked)),
+                name="scrcpy-output",
+                daemon=True,
             ).start()
         return True
 
@@ -649,9 +740,14 @@ class Watcher:
             log.exception("Could not read Wi-Fi details of %s", dev.serial)
 
     @staticmethod
-    def _pump_output(proc: subprocess.Popen, serial: str) -> None:
+    def _pump_output(proc: subprocess.Popen, serial: str, on_line=None) -> None:
         assert proc.stdout is not None
         for line in proc.stdout:
             line = line.rstrip()
             if line:
                 log.info("  scrcpy[%s] %s", serial, line)
+                if on_line is not None:
+                    try:
+                        on_line(line)
+                    except Exception:
+                        log.debug("Reading scrcpy's output failed", exc_info=True)
