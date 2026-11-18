@@ -517,7 +517,7 @@ def _dialog(adb: Adb, kind: str, message: str = "") -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="phonnect",
-        description="Phonnect: your phone on your desktop, the moment it connects (built on scrcpy).",
+        description="Phonnect: your phone on your desktop, as soon as you plug it in or come near (built on scrcpy).",
     )
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = p.add_subparsers(dest="command", metavar="<command>")

@@ -5,7 +5,7 @@
 <h1 align="center">Phonnect</h1>
 
 <p align="center">
-  <b>Your Android phone on your desktop, the moment it connects.</b><br>
+  <b>Your Android phone on your desktop, as soon as you plug it in or come near (USB or Wi-Fi).</b><br>
   A small tray app that makes <a href="https://github.com/Genymobile/scrcpy">scrcpy</a> and adb effortless: it connects to your phone over USB or Wi-Fi and opens the mirror for you.<br>
   <sub>Formerly <i>scrcpy-autolaunch</i>.</sub>
 </p>

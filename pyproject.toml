@@ -1,7 +1,7 @@
 [project]
 name = "phonnect"
 dynamic = ["version"]
-description = "Open scrcpy automatically when an Android device connects over USB or Wi-Fi, with a tray icon."
+description = "Your Android phone on your desktop, as soon as you plug it in or come near (USB or Wi-Fi). A tray app that automates scrcpy + adb."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"

@@ -241,7 +241,7 @@ def linux_desktop_entry(cmd: list[str], autostart: bool = True, icon: str = "") 
         "[Desktop Entry]",
         "Type=Application",
         "Name=Phonnect",
-        "Comment=Your phone on your desktop, the moment it connects",
+        "Comment=Your phone on your desktop, as soon as you plug it in or come near",
         "Exec=" + " ".join(_desktop_quote(a) for a in cmd),
         f"Icon={icon or 'smartphone'}",
         "Terminal=false",
