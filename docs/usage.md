@@ -13,7 +13,14 @@ Pixel 6: allow USB debugging on the phone needs your attention
 Audio                                 >  Off / PC and phone / PC only
 Force landscape
 Wi-Fi                                 >  Pair new phone… / Connect to address… / Manage Wi-Fi phones… / Disconnect all
-Settings                              >  Auto-launch on USB / on Wi-Fi, Keep Wi-Fi connected, Show sidebar, Hide phone keyboard, Start at login, Open log, Open settings folder
+Settings                              >  Auto-launch on USB
+                                         Auto-launch on Wi-Fi
+                                         Keep Wi-Fi connected after closing the window
+                                         Show sidebar next to the window
+                                         Hide phone keyboard while mirroring
+                                         Mouse buttons >  Right click / Middle click / Side buttons
+                                         Start at login
+                                         Open log / Open settings folder
 ---
 Quit
 ```

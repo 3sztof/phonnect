@@ -43,14 +43,15 @@ Both are powerful, but they're command-line tools: you start them by hand every 
 ## The tray menu
 
 ```
-Pixel 9 Pro: mirroring (USB)        >  Show window / Stop mirroring / Open shell / Disconnect Wi-Fi
-Connect and mirror Pixel 7 (Wi-Fi)
----
-Audio                               >  Off / PC and phone / PC only
+Pixel 9 Pro: mirroring (USB)  >  Show window · Stop mirroring · Open desktop mode · Open shell
+Mirror Pixel 7 (Wi-Fi)
+───────────
+Audio                         >  Off · PC and phone · PC only
 Force landscape
-Wi-Fi                               >  Pair new phone… / Connect to address… / Manage Wi-Fi phones…
-Settings                            >  Auto-launch on USB / Wi-Fi, Hide phone keyboard, Start at login, Log
----
+Wi-Fi                         >  Pair new phone… · Connect to address… · Manage Wi-Fi phones… · Disconnect all
+Settings                      >  Auto-launch on USB / Wi-Fi · Keep Wi-Fi connected · Show sidebar ·
+                                 Hide phone keyboard · Mouse buttons · Start at login · Open log / settings
+───────────
 Quit
 ```
 
