@@ -1,4 +1,4 @@
-# scrcpy-auto-launch.vbs
+' scrcpy-auto-launch.vbs
 ' Silent launcher — no console flash, no UAC prompt.
 ' Runs the PowerShell watcher with WindowStyle 0 (hidden).
 ' The scrcpy mirror window itself is a GUI window and appears normally.
