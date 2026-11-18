@@ -73,7 +73,7 @@ You need **scrcpy + adb** and **[uv](https://docs.astral.sh/uv/)**:
 Then install the [latest release](https://github.com/3sztof/scrcpy-autolaunch/releases/latest) with the command shown on its page, which looks like this:
 
 ```sh
-uv tool install --force --python ">=3.11" https://github.com/3sztof/scrcpy-autolaunch/releases/download/v0.1.0/scrcpy_autolaunch-0.1.0-py3-none-any.whl
+uv tool install --force --python ">=3.11" https://github.com/3sztof/scrcpy-autolaunch/releases/download/v0.2.0/scrcpy_autolaunch-0.2.0-py3-none-any.whl
 scrcpy-autolaunch install
 ```
 
