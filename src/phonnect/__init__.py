@@ -1,3 +1,3 @@
 """Phonnect: your phone on your desktop, the moment it connects (built on scrcpy)."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
