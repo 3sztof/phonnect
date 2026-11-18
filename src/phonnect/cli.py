@@ -108,6 +108,16 @@ def cmd_tray(args) -> int:
     if not lock.acquire():
         if sys.stderr is not None:
             print(f"Already running (pid {running_pid()}).", file=sys.stderr)
+        # Opened again from the app menu: let the running copy show itself, so it isn't
+        # mistaken for "nothing happened".
+        from phonnect import control
+
+        endpoint = control.read_endpoint()
+        if endpoint is not None:
+            try:
+                control.request(*endpoint, {"cmd": "show"}, timeout=3)
+            except OSError:
+                pass
         return 0
     with lock:
         setup_logging(to_file=True, to_console=True)

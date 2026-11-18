@@ -132,21 +132,28 @@ class Adb:
             out = ""
         return out or serial
 
+    def _output(self, *args: str, timeout: float) -> tuple[bool, str]:
+        """(finished, output) of an adb command; a time-out or a failed start becomes a message."""
+        try:
+            r = self.run(*args, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return False, f"adb {args[0]} timed out after {timeout:.0f} s (the phone didn't answer)"
+        except OSError as exc:
+            return False, f"could not run adb: {exc}"
+        return True, (r.stdout + r.stderr).strip()
+
     def pair(self, address: str, code: str) -> tuple[bool, str]:
-        r = self.run("pair", address, code, timeout=30)
-        out = (r.stdout + r.stderr).strip()
-        return ("Successfully paired" in out, out)
+        finished, out = self._output("pair", address, code, timeout=30)
+        return (finished and "Successfully paired" in out, out)
 
     def connect(self, address: str) -> tuple[bool, str]:
-        r = self.run("connect", address, timeout=20)
-        out = (r.stdout + r.stderr).strip()
+        finished, out = self._output("connect", address, timeout=20)
         # Success: "connected to X" / "already connected to X".
         # Failure: "failed to connect to X" / "cannot connect to X".
-        return ("connected to" in out, out)
+        return (finished and "connected to" in out and "failed" not in out and "cannot" not in out, out)
 
     def disconnect(self, address: str | None = None) -> str:
-        r = self.run("disconnect", *([address] if address else []), timeout=15)
-        return (r.stdout + r.stderr).strip()
+        return self._output("disconnect", *([address] if address else []), timeout=15)[1]
 
     def mdns_services(self) -> list[MdnsService]:
         return parse_mdns(self.run("mdns", "services", timeout=15).stdout)

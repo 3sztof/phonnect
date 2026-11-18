@@ -181,6 +181,15 @@ def test_mirror_and_quit_requests(home):
     assert _wait_for(lambda: quit_called)
 
 
+def test_show_request_when_opened_again(home):
+    h = Harness(auto_usb=False)
+    assert h.watcher.handle_control({"cmd": "show"})["ok"] is False, "no show handler set"
+    shown = []
+    h.watcher.on_show = lambda: shown.append(True)
+    assert h.watcher.handle_control({"cmd": "show"}) == {"ok": True}
+    assert shown == [True]
+
+
 def test_desktop_mode_opens_second_window_once():
     h = Harness(auto_usb=False)
     h.tick(USB_PHONE)

@@ -333,7 +333,7 @@ def reconnect(
     scan: bool | None = None,
     progress: Callable[[str], None] = lambda msg: None,
 ) -> tuple[bool, str]:
-    """Connect to a known phone. Returns (ok, address or explanation).
+    """Connect to a known phone. Returns (ok, address or explanation); never raises for adb trouble.
 
     scan=None follows the wifi_port_scan setting.
     """
@@ -341,6 +341,21 @@ def reconnect(
         from phonnect.config import Config
 
         scan = Config.load().wifi_port_scan
+    try:
+        return _reconnect(adb, device, scan, progress)
+    except subprocess.TimeoutExpired as exc:
+        log.warning("Connecting to %s: adb timed out: %s", device.label, exc)
+        return (
+            False,
+            f"adb didn't answer within {exc.timeout:.0f} s. "
+            "Try again; if it keeps happening, replug or restart the phone.",
+        )
+    except OSError as exc:
+        log.warning("Connecting to %s failed: %s", device.label, exc)
+        return False, f"Could not run adb: {exc}"
+
+
+def _reconnect(adb: Adb, device: KnownDevice, scan: bool, progress: Callable[[str], None]) -> tuple[bool, str]:
     tried: list[str] = []
     drop_offline(adb, device.ip or None)
 

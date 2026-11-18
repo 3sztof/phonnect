@@ -141,6 +141,7 @@ class TrayApp:
 
             attach_helpers(self.watcher)
             self.watcher.on_quit = self.quit
+            self.watcher.on_show = self.show
         self.icon = icon_class(pystray)(
             "phonnect",
             icon=icons.tray_icon(initial, self._icon_key[1]),
@@ -163,6 +164,23 @@ class TrayApp:
         self._stopping.set()
         if self.watcher:
             self.watcher.stop()
+
+    def show(self) -> None:
+        """Phonnect was opened again (app menu, Spotlight, Start menu) while it's running."""
+        log.info("Opened again: showing the menu")
+        if IS_MAC:
+
+            def open_menu():
+                try:
+                    self.icon._status_item.button().performClick_(None)  # opens the menu bar menu
+                except Exception:
+                    log.debug("Could not open the menu", exc_info=True)
+                    self.notify("Phonnect is running: click its icon in the menu bar.")
+
+            self._on_main(open_menu)
+        else:
+            where = "in the tray, near the clock" if IS_WINDOWS else "in the panel's tray area"
+            self.notify(f"Phonnect is already running. Its phone icon is {where}: click it for the menu.")
 
     def quit(self, *_):
         log.info("Quit from tray menu")
@@ -478,13 +496,16 @@ class TrayApp:
                 self.refresh()
                 try:
                     ok, result = reconnect(self.adb, k, progress=lambda m: log.info("%s", m))
+                except Exception as exc:  # anything unexpected still ends "connecting…"
+                    log.exception("Connecting to %s failed", k.label)
+                    ok, result = False, f"Unexpected error: {exc}"
                 finally:
                     self._connecting.discard(hw_id)
+                    self.refresh()
                 if not ok:
                     log.warning("Could not connect to %s:\n%s", k.label, result)
-                    # Notifications are easy to miss; show the details in a window.
+                    self.notify(f"Could not connect to {k.label}. Details are in the Wi-Fi phones window.")
                     self._dialog("devices", f"Could not connect to {k.label}.\n{result}")
-                    self.refresh()
                     return
                 self.known.remember(hw_id, address=result)
                 log.info("Connected to %s at %s", k.label, result)

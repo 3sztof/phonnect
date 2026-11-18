@@ -71,6 +71,7 @@ class Watcher:
         self.control: tuple[str, str] | None = None  # (address, token) of the control server
         self.style_windows = False  # match scrcpy's title bar to the OS theme (set by the tray)
         self.on_quit: Callable[[], None] | None = None  # how a "quit" control request ends the app
+        self.on_show: Callable[[], None] | None = None  # the app was opened again: show where it is
         self._on_change = on_change or (lambda: None)
         self._notify = notify or (lambda msg: None)
         self._popen = popen
@@ -405,6 +406,11 @@ class Watcher:
         if cmd == "open_desktop":
             result = self.open_desktop(str(msg.get("hw", "")))
             return {"ok": result in ("started", "already open"), "result": result}
+        if cmd == "show":
+            if self.on_show is None:
+                return {"ok": False, "error": "show is not supported here"}
+            self.on_show()
+            return {"ok": True}
         if cmd == "quit":
             if self.on_quit is None:
                 return {"ok": False, "error": "quit is not supported here"}
