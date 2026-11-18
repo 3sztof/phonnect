@@ -91,6 +91,19 @@ The sidebar's slider makes everything on the phone smaller, so more fits on the 
 
 Technically it's the phone's display density (`wm density`). Text and buttons get smaller **on the phone too** while you mirror, and apps briefly redraw when it changes. Your own setting is put back when the window closes, the phone disconnects, or you quit the app. If the phone was unplugged mid-session, it's put back as soon as it connects again. The last value you chose is remembered for the next window (`content_scale` in the config file).
 
+### Mouse buttons
+
+**Settings → Mouse buttons** sets what each extra mouse button does in the mirror window:
+
+| Button | Default |
+|---|---|
+| Right click | Sent to the app, like a right click on a PC (most apps ignore it, some open a menu) |
+| Middle click | Home |
+| Side button (back) | Back, like in a browser |
+| Side button (forward) | Recent apps |
+
+Each can be set to: click in the app, Back, Home, Recent apps, Notifications, or nothing. Holding **Shift** while clicking always gives scrcpy's original shortcuts (right: Back, middle: Home, side buttons: Recent apps / Notifications). Changing it reopens an open window. **Escape** works as Back too, because Android treats it that way. Needs scrcpy 2.5 or newer.
+
 ### Hide phone keyboard while mirroring
 
 On by default. scrcpy acts as a physical keyboard, so Android hides the on-screen keyboard and you type on the PC. Nothing changes on the phone permanently: the on-screen keyboard comes back when the window closes.
@@ -138,6 +151,7 @@ Settings changed in the tray are saved immediately. You can also edit the file d
   "content_scale": 100,
   "show_sidebar": true,
   "desktop_display": "1920x1080/160",
+  "mouse_buttons": {"right": "app", "middle": "home", "back": "back", "forward": "recents"},
   "audio": "off",
   "scrcpy_args": ["--stay-awake"],
   "wireless_extra_args": ["--max-size=1600", "--video-bit-rate=6M"],

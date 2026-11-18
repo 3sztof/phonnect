@@ -32,6 +32,12 @@ class Config:
     show_sidebar: bool = True
     # Desktop mode: size/density of the second, PC-sized screen (WIDTHxHEIGHT/DPI).
     desktop_display: str = "1920x1080/160"
+    # What each secondary mouse button does in mirror windows:
+    # "app" (send the click to the app), "back", "home", "recents", "notifications" or "nothing".
+    # Holding Shift always gives Back / Home / Recent apps / Notifications.
+    mouse_buttons: dict = field(
+        default_factory=lambda: {"right": "app", "middle": "home", "back": "back", "forward": "recents"}
+    )
     # "off":  --no-audio, sound stays on the phone only (default)
     # "both": play on the PC *and* keep playing on the phone (Android 13+; apps may opt out)
     # "pc":   move sound to the PC; the phone goes silent (also e.g. a Bluetooth amp)

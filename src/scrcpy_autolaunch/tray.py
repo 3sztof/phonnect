@@ -27,7 +27,7 @@ from scrcpy_autolaunch import autostart, icons, paths, theme
 from scrcpy_autolaunch.adb import USB, WIRELESS, Adb
 from scrcpy_autolaunch.config import Config
 from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, focus_process_window, gui_python, open_path
-from scrcpy_autolaunch.watcher import Watcher
+from scrcpy_autolaunch.watcher import MOUSE_DEFAULTS, Watcher
 from scrcpy_autolaunch.wireless import KnownDevices, reconnect
 
 log = logging.getLogger(__name__)
@@ -36,6 +36,21 @@ AUDIO_MODES = (
     ("off", "Off (sound stays on the phone)"),
     ("both", "PC and phone (Android 13+)"),
     ("pc", "PC only (phone goes silent)"),
+)
+
+MOUSE_BUTTON_LABELS = (
+    ("right", "Right click"),
+    ("middle", "Middle click"),
+    ("back", "Side button (back)"),
+    ("forward", "Side button (forward)"),
+)
+MOUSE_ACTION_LABELS = (
+    ("app", "Click in the app"),
+    ("back", "Back"),
+    ("home", "Home"),
+    ("recents", "Recent apps"),
+    ("notifications", "Notifications"),
+    ("nothing", "Nothing"),
 )
 
 STATE_TEXT = {
@@ -254,6 +269,7 @@ class TrayApp:
                     self._toggle("hide_phone_keyboard", restart=True),
                     checked=lambda _: self.config.hide_phone_keyboard,
                 ),
+                Item("Mouse buttons", Menu(*self._mouse_items())),
                 Item("Start at login", self._toggle_autostart, checked=lambda _: autostart.is_enabled()),
                 Menu.SEPARATOR,
                 Item("Open log", lambda *_: self._open(paths.log_file())),
@@ -406,6 +422,42 @@ class TrayApp:
         self.icon.update_menu()
         if self.watcher:
             self.watcher.apply_landscape_setting()  # applies to open windows right away
+
+    def _mouse_items(self):
+        Item, Menu = self.pystray.MenuItem, self.pystray.Menu
+        for button, label in MOUSE_BUTTON_LABELS:
+            yield Item(
+                label,
+                Menu(
+                    *(
+                        Item(text, self._set_mouse(button, action), checked=self._mouse_is(button, action), radio=True)
+                        for action, text in MOUSE_ACTION_LABELS
+                    )
+                ),
+            )
+        yield Menu.SEPARATOR
+        yield Item("Shift + click: Back / Home / Recent apps / Notifications", None, enabled=False)
+
+    def _mouse_is(self, button: str, action: str):
+        def checked(_item):
+            current = self.config.mouse_buttons if isinstance(self.config.mouse_buttons, dict) else {}
+            return current.get(button, MOUSE_DEFAULTS[button]) == action
+
+        return checked
+
+    def _set_mouse(self, button: str, action: str):
+        def apply(*_):
+            current = dict(self.config.mouse_buttons) if isinstance(self.config.mouse_buttons, dict) else {}
+            if current.get(button, MOUSE_DEFAULTS[button]) == action:
+                return
+            current[button] = action
+            self.config.mouse_buttons = current
+            self.config.save()
+            log.info("Setting mouse button %s = %s", button, action)
+            self.icon.update_menu()
+            self._restart_sessions()
+
+        return apply
 
     def _audio_is(self, mode: str):
         return lambda _item: self.config.audio == mode

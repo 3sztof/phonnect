@@ -91,7 +91,7 @@ def test_launches_on_usb_connect():
     h.tick(USB_PHONE)
     assert len(h.procs) == 1
     assert h.procs[0].args == [
-        "scrcpy", "-s", USB_PHONE.serial, "--stay-awake", "--no-audio", "--keyboard=uhid"
+        "scrcpy", "-s", USB_PHONE.serial, "--stay-awake", "--no-audio", "--mouse-bind=+hbs:bhsn", "--keyboard=uhid"
     ]
 
 
@@ -162,7 +162,7 @@ def test_wireless_off_by_default_and_gets_extra_args_when_on():
     assert h.procs == []
     h = Harness(auto_wireless=True)
     h.tick(WIFI_OTHER_PHONE)
-    assert h.procs[0].args[-4:] == ["--max-size=1600", "--video-bit-rate=6M", "--no-audio", "--keyboard=uhid"]
+    assert h.procs[0].args[-5:] == ["--max-size=1600", "--video-bit-rate=6M", "--no-audio", "--mouse-bind=+hbs:bhsn", "--keyboard=uhid"]
 
 
 def test_same_phone_on_usb_and_wifi_gets_one_window_via_usb():
@@ -310,3 +310,26 @@ def test_stop_mirroring_from_tray_disconnects_wifi():
     h.tick(WIFI_OTHER_PHONE)
     h.watcher.stop_mirroring(WIFI_OTHER_PHONE.serial)
     assert _wait_for(lambda: h.adb.disconnected == [WIFI_OTHER_PHONE.serial])
+
+
+def _mouse(h):
+    return [a for a in h.watcher.build_args(USB_PHONE) if a.startswith("--mouse-bind")]
+
+
+def test_right_click_goes_to_the_app_by_default():
+    assert _mouse(Harness()) == ["--mouse-bind=+hbs:bhsn"]
+
+
+def test_custom_mouse_buttons_and_bad_values():
+    h = Harness(mouse_buttons={"right": "back", "middle": "nothing", "forward": "notifications", "back": "bogus"})
+    assert _mouse(h) == ["--mouse-bind=b-bn:bhsn"], "unknown action falls back to that button's default"
+    h = Harness(mouse_buttons="garbage")
+    assert _mouse(h) == ["--mouse-bind=+hbs:bhsn"]
+
+
+def test_mouse_bind_version_gate_and_user_override():
+    h = Harness()
+    h.watcher.scrcpy_version = (2, 4)
+    assert _mouse(h) == []
+    h = Harness(scrcpy_args=["--stay-awake", "--mouse-bind=++++"])
+    assert _mouse(h) == ["--mouse-bind=++++"], "the user's own --mouse-bind is kept, ours not added"

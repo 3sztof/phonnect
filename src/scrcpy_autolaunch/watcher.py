@@ -28,6 +28,10 @@ log = logging.getLogger(__name__)
 # A scrcpy that dies this quickly with an error almost certainly failed to start.
 QUICK_FAIL_SECONDS = 5.0
 
+# Mouse buttons in scrcpy's --mouse-bind order, with their default action.
+MOUSE_DEFAULTS = {"right": "app", "middle": "home", "back": "back", "forward": "recents"}
+MOUSE_ACTIONS = {"app": "+", "back": "b", "home": "h", "recents": "s", "notifications": "n", "nothing": "-"}
+
 STATE_HINTS = {
     "unauthorized": "accept the 'Allow USB debugging' prompt on the phone",
     "no permissions": "adb lacks USB permissions; see the Linux section of the README (udev rules)",
@@ -252,7 +256,22 @@ class Watcher:
         ]  # fmt: skip
         if self.config.hide_phone_keyboard and (self.scrcpy_version is None or self.scrcpy_version >= (2, 4)):
             args.append("--keyboard=uhid")
+        args += self._mouse_args(args)
         return args
+
+    def _mouse_args(self, args: list[str]) -> list[str]:
+        """scrcpy's --mouse-bind from the mouse_buttons setting (right, middle, back, forward)."""
+        if any(a.startswith("--mouse-bind") for a in args):
+            return []  # set by the user in scrcpy_args
+        if self.scrcpy_version is not None and self.scrcpy_version < (2, 5):  # --mouse-bind was added in 2.5
+            return []
+        chosen = self.config.mouse_buttons if isinstance(self.config.mouse_buttons, dict) else {}
+        primary = ""
+        for button, default in MOUSE_DEFAULTS.items():
+            action = chosen.get(button, default)
+            primary += MOUSE_ACTIONS.get(action, MOUSE_ACTIONS[default])
+        # With Shift held: scrcpy's original shortcuts.
+        return [f"--mouse-bind={primary}:bhsn"]
 
     def session_pid(self, hw_id: str) -> int | None:
         with self._lock:
@@ -476,6 +495,7 @@ class Watcher:
         if dev.transport == WIRELESS:
             args += [a for a in self.config.wireless_extra_args if a != "--no-audio"]
         args += self._audio_args()
+        args += self._mouse_args(args)
         user_set_keyboard = any(a.startswith("--keyboard") or a in ("-K", "--hid-keyboard") for a in args)
         if self.config.hide_phone_keyboard and not user_set_keyboard:
             if self.scrcpy_version is None or self.scrcpy_version >= (2, 4):  # --keyboard was added in 2.4
