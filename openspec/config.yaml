@@ -1,0 +1,43 @@
+schema: spec-driven
+
+# Constraints every change must respect. These are design decisions already made;
+# changing one needs its own proposal that says so explicitly.
+context: |
+  Product: a small tray app that opens scrcpy automatically when an Android phone connects
+  (USB or Wi-Fi). Main value: it gets out of the way. Prefer zero-click defaults over options.
+
+  Platforms: designs and tasks cover Windows, macOS and Linux. Windows is the primary,
+  hand-tested platform; macOS/Linux behavior must degrade gracefully (e.g. the sidebar
+  floats instead of docking), never crash. On Wayland, apps can't read other windows'
+  positions: don't design features that need it there.
+
+  Phone safety (non-negotiable):
+  - Never leave a phone changed. Every setting changed on a phone is saved first and
+    restored on window close, toggle-off, quit, or on the next connect if unreachable.
+  - Never touch Bluetooth. Audio is off (stays on the phone) by default.
+  - No root-only features, no bypassing FLAG_SECURE/DRM, no automatic unlocking.
+
+  Architecture:
+  - The tray process is the single owner of phone-setting changes and config.json.
+    Other processes (sidebars, dialogs, CLI) ask it over the localhost+token control
+    channel; they must not change phone settings themselves.
+  - Tk windows run in separate processes (macOS needs the main thread for both Tk and
+    the tray icon).
+  - scrcpy and adb are used, never bundled; the same adb binary is passed to scrcpy.
+  - No console windows on Windows for anything the user didn't explicitly open.
+
+  Dependencies: keep them few and small; licenses must be compatible with MIT
+  (no GPL; ttkthemes was rejected for this reason). Python 3.11+, installed with uv.
+
+  Writing style for user-facing text: plain language, short, no jargon; explain what
+  the user sees and what to do. Docs live in docs/*.md and README.md.
+
+  Backlog: feature drafts are OpenSpec changes in openspec/changes/, each linked to a
+  GitHub issue (the issue is the discussion thread, the change is the plan).
+
+rules:
+  proposal:
+    - Link the tracking GitHub issue in the Why section
+    - State what is out of scope
+  tasks:
+    - Include updating docs/usage.md (and README.md if user-visible) and the tests

@@ -26,6 +26,15 @@ just install    # install the checkout as the real app
 - **Start at login and app menu entries** (`autostart.py`): a Startup folder shortcut (Windows), a LaunchAgent (macOS), and XDG autostart and `.desktop` files (Linux).
 - **One instance only** (`instance.py`): an OS file lock. The log rotates at 1 MB.
 
+## Specs and the backlog (OpenSpec)
+
+The app's behavior and design decisions are written down with [OpenSpec](https://openspec.dev):
+- **`openspec/specs/`** describes what the app does today, one folder per area (auto-launch, tray-menu, wireless, phone-settings, sidebar, desktop-mode, audio-and-input, appearance, installation). These are testable requirements with scenarios.
+- **`openspec/config.yaml`** lists the design decisions every change must respect. For example: phones are never left changed, the tray is the only process that changes phone settings, no GPL dependencies.
+- **`openspec/changes/`** holds planned features. Each one is linked to a GitHub issue: the issue is for discussion, and the change is the plan (proposal, then specs, design and tasks).
+
+Useful commands (`npm install -g @fission-ai/openspec`): `openspec list`, `openspec show <change>`, `openspec validate --specs --strict`. With an AI assistant, use the `openspec-propose`, `openspec-apply-change` and `openspec-archive-change` skills in `.agents/skills/`.
+
 ## Tests and CI
 
 `just test` runs the unit tests. They use fake adb and scrcpy processes, so no phone is needed.
