@@ -73,6 +73,9 @@ class Watcher:
         self.hw_ids: dict[str, str] = {}
         self.sessions: dict[str, Session] = {}
         self._warned_usb_off: set[str] = set()
+        # Phones whose window the user closed: not auto-launched over Wi-Fi again
+        # (adb may silently reconnect them via mDNS) until clicked or plugged in.
+        self._user_closed: set[str] = set()
 
     # ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -131,7 +134,9 @@ class Watcher:
                 self.hw_ids[dev.serial] = self.adb.hardware_id(dev.serial)
                 log.info("Device connected: %s [%s]", dev.label, dev.serial)
                 hw = self.hw_ids[dev.serial]
-                if self._auto_enabled(dev):
+                if dev.transport == USB:
+                    self._user_closed.discard(hw)  # plugging in is a fresh request
+                if self._auto_enabled(dev) and not (dev.transport == WIRELESS and hw in self._user_closed):
                     self._launch(dev)
                 if self.rotation is not None and hw not in self.sessions and self.rotation.has_saved(hw):
                     # Left in landscape by a session that ended while the phone was unreachable.
@@ -149,6 +154,7 @@ class Watcher:
         started = 0
         with self._lock:
             self._reap()
+            self._user_closed.clear()
             for dev in sorted(self.devices.values(), key=lambda d: d.transport != USB):
                 if dev.online and self._launch(dev):
                     started += 1
@@ -173,6 +179,7 @@ class Watcher:
         """Open a window for one phone. Returns a short result for the user."""
         with self._lock:
             self._reap()
+            self._user_closed.discard(hw_id)
             if hw_id in self.sessions:
                 return "already mirroring"
             for dev in sorted(self.devices.values(), key=lambda d: d.transport != USB):
@@ -196,8 +203,23 @@ class Watcher:
         s.proc.terminate()
         if self.rotation is not None:
             self.rotation.restore(hw_id)
+        self._closed_by_user(s)
         self._on_change()
         return True
+
+    def _closed_by_user(self, s: Session) -> None:
+        self._user_closed.add(s.hw_id)
+        if s.device.transport == WIRELESS and not self.config.keep_wifi_connected:
+            log.info("Window closed: disconnecting Wi-Fi for %s", s.device.label)
+            threading.Thread(
+                target=self._disconnect_quietly, args=(s.device.serial,), name="disconnect", daemon=True
+            ).start()
+
+    def _disconnect_quietly(self, serial: str) -> None:
+        try:
+            self.adb.disconnect(serial)
+        except Exception as exc:
+            log.warning("Could not disconnect %s: %s", serial, exc)
 
     def online_serial(self, hw_id: str) -> str | None:
         """An online adb serial for this phone (USB preferred), or None."""
@@ -344,6 +366,8 @@ class Watcher:
             log.info("scrcpy exited for %s (code %s)", s.device.label, code)
             if self.rotation is not None:
                 self.rotation.restore(hw)
+            if code == 0:  # the user closed the window
+                self._closed_by_user(s)
             if code != 0 and self._clock() - s.started < QUICK_FAIL_SECONDS:
                 self._notify(f"scrcpy failed for {s.device.label} (exit code {code}). See the log.")
         return changed

@@ -11,6 +11,7 @@ class FakeAdb:
     path = "adb"
 
     def __init__(self):
+        self.disconnected = []
         self.current: list[Device] = []
         self.hw = {WIFI_SAME_PHONE.serial: USB_PHONE.serial}
 
@@ -22,6 +23,12 @@ class FakeAdb:
 
     def hardware_id(self, serial):
         return self.hw.get(serial, serial)
+
+    disconnected: list
+
+    def disconnect(self, serial=None):
+        self.disconnected.append(serial)
+        return "disconnected"
 
 
 class FakeProc:
@@ -247,3 +254,59 @@ def test_warns_once_when_usb_debugging_is_off():
     h.watcher._learn(WIFI_SAME_PHONE, USB_PHONE.serial)
     h.watcher._learn(WIFI_SAME_PHONE, USB_PHONE.serial)
     assert len(h.notes) == 1 and "USB debugging is off" in h.notes[0]
+
+
+def _wait_for(cond, timeout=2.0):
+    import time
+
+    end = time.monotonic() + timeout
+    while time.monotonic() < end and not cond():
+        time.sleep(0.01)
+    return cond()
+
+
+def test_closing_wifi_window_disconnects_by_default():
+    h = Harness(auto_wireless=True)
+    h.tick(WIFI_OTHER_PHONE)
+    h.now += 60
+    h.procs[0].close_window(code=0)
+    h.tick(WIFI_OTHER_PHONE)
+    assert _wait_for(lambda: h.adb.disconnected == [WIFI_OTHER_PHONE.serial])
+
+
+def test_keep_wifi_connected_option():
+    h = Harness(auto_wireless=True, keep_wifi_connected=True)
+    h.tick(WIFI_OTHER_PHONE)
+    h.now += 60
+    h.procs[0].close_window(code=0)
+    h.tick(WIFI_OTHER_PHONE)
+    assert not _wait_for(lambda: h.adb.disconnected, timeout=0.2)
+
+
+def test_usb_close_and_crashes_do_not_disconnect():
+    h = Harness(auto_wireless=True)
+    h.tick(USB_PHONE, WIFI_OTHER_PHONE)
+    h.now += 60
+    h.procs[0].close_window(code=0)  # USB window closed by the user
+    h.procs[1].close_window(code=2)  # Wi-Fi window lost its connection
+    h.tick(USB_PHONE, WIFI_OTHER_PHONE)
+    assert not _wait_for(lambda: h.adb.disconnected, timeout=0.2)
+
+
+def test_wifi_reconnect_after_user_close_does_not_reopen_until_clicked():
+    h = Harness(auto_wireless=True, keep_wifi_connected=True)
+    h.tick(WIFI_OTHER_PHONE)
+    h.now += 60
+    h.procs[0].close_window(code=0)
+    h.tick(WIFI_OTHER_PHONE)
+    h.tick()  # drops off Wi-Fi
+    h.tick(WIFI_OTHER_PHONE)  # adb reconnects it by itself (mDNS)
+    assert len(h.procs) == 1
+    assert h.watcher.mirror(WIFI_OTHER_PHONE.serial) == "started"
+
+
+def test_stop_mirroring_from_tray_disconnects_wifi():
+    h = Harness(auto_wireless=True)
+    h.tick(WIFI_OTHER_PHONE)
+    h.watcher.stop_mirroring(WIFI_OTHER_PHONE.serial)
+    assert _wait_for(lambda: h.adb.disconnected == [WIFI_OTHER_PHONE.serial])

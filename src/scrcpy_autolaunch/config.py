@@ -22,6 +22,9 @@ class Config:
     # Rotate the phone to landscape while it's mirrored (even apps that ask for
     # portrait); the previous rotation setting is restored when the window closes.
     force_landscape: bool = False
+    # Closing a Wi-Fi mirror window also disconnects that phone's Wi-Fi debugging
+    # connection, unless this is on.
+    keep_wifi_connected: bool = False
     # "off":  --no-audio, sound stays on the phone only (default)
     # "both": play on the PC *and* keep playing on the phone (Android 13+; apps may opt out)
     # "pc":   move sound to the PC; the phone goes silent (also e.g. a Bluetooth amp)

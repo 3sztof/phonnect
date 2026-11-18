@@ -236,6 +236,11 @@ class TrayApp:
                     checked=lambda _: self.config.auto_wireless,
                 ),
                 Item(
+                    "Keep Wi-Fi connected after closing the window",
+                    self._toggle("keep_wifi_connected"),
+                    checked=lambda _: self.config.keep_wifi_connected,
+                ),
+                Item(
                     "Hide phone keyboard while mirroring",
                     self._toggle("hide_phone_keyboard", restart=True),
                     checked=lambda _: self.config.hide_phone_keyboard,

@@ -13,7 +13,7 @@ Pixel 6: allow USB debugging on the phone needs your attention
 Audio                                 >  Off / PC and phone / PC only
 Force landscape
 Wi-Fi                                 >  Pair new phone… / Connect to address… / Manage Wi-Fi phones… / Disconnect all
-Settings                              >  Auto-launch on USB / on Wi-Fi, Hide phone keyboard, Start at login, Open log, Open settings folder
+Settings                              >  Auto-launch on USB / on Wi-Fi, Keep Wi-Fi connected, Hide phone keyboard, Start at login, Open log, Open settings folder
 ---
 Quit
 ```
@@ -31,7 +31,9 @@ Quit
 | **Auto-launch on USB** (on by default) | Plugging in the phone opens the window |
 | **Auto-launch on Wi-Fi** (off by default) | The phone connecting over Wi-Fi opens the window |
 
-Closing the window doesn't reopen it. The phone has to disconnect and connect again first (unplug and replug, or drop off and rejoin Wi-Fi), or you click it in the menu.
+Closing the window doesn't reopen it. The phone has to disconnect and connect again first (unplug and replug), or you click it in the menu.
+
+**Closing a Wi-Fi window also ends the Wi-Fi connection** (and so does **Stop mirroring**), so the phone isn't left connected in the background. To keep it connected instead, turn on **Settings → Keep Wi-Fi connected after closing the window**. Either way, a phone whose window you closed isn't reopened automatically over Wi-Fi until you click it or plug it in. That matters because adb can quietly reconnect paired phones by itself.
 
 ## Settings
 
@@ -95,6 +97,7 @@ Settings changed in the tray are saved immediately. You can also edit the file d
   "auto_wireless": false,
   "hide_phone_keyboard": true,
   "force_landscape": false,
+  "keep_wifi_connected": false,
   "audio": "off",
   "scrcpy_args": ["--stay-awake"],
   "wireless_extra_args": ["--max-size=1600", "--video-bit-rate=6M"],
