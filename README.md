@@ -80,7 +80,7 @@ You need **scrcpy + adb** and **[uv](https://docs.astral.sh/uv/)**:
 Then install the [latest release](https://github.com/3sztof/phonnect/releases/latest) with the command shown on its page, which looks like this:
 
 ```sh
-uv tool install --force --python ">=3.11" https://github.com/3sztof/phonnect/releases/download/vX.Y.Z/phonnect-X.Y.Z-py3-none-any.whl
+uv tool install --force --python ">=3.11" https://github.com/3sztof/phonnect/releases/download/v0.3.0/phonnect-0.3.0-py3-none-any.whl
 phonnect install
 ```
 

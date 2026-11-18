@@ -40,6 +40,17 @@ doctor:
 log lines="30":
     @just _app log -n {{lines}}
 
+# One-time developer setup: dependencies and the pre-commit hooks (lint, format, secret scanning)
+setup:
+    uv sync
+    uv tool install pre-commit
+    pre-commit install
+    pre-commit install-hooks
+
+# Scan the whole git history for leaked secrets (the pre-commit hook only checks new commits)
+secrets:
+    pre-commit run gitleaks-history --hook-stage manual
+
 # Run the unit tests
 test:
     uv run pytest -q

@@ -16,7 +16,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # the secret scan looks at the whole history
       - uses: astral-sh/setup-uv@v7
+      - name: pre-commit hooks (incl. secret scanning)
+        run: uvx pre-commit run --all-files --show-diff-on-failure
+      - name: Secret scan of the whole git history
+        run: uvx pre-commit run gitleaks-history --hook-stage manual
       - name: Ruff (lint)
         run: uv run ruff check --output-format github
       - name: Ruff (format)

@@ -1,4 +1,4 @@
-# Install the hooks once per clone: uv tool install pre-commit && pre-commit install
+# Set up once per clone with: just setup   (or: uv tool install pre-commit && pre-commit install)
 # Run on everything: pre-commit run --all-files   (or: just lint)
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -19,3 +19,16 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=500]
+
+  # Secret scanning: blocks commits that contain API keys, tokens, private keys, ...
+  # False positive? Add `gitleaks:allow` in a comment on that line, or list it in .gitleaks.toml.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+      # `just secrets`: the same scanner over the whole git history (manual only)
+      - id: gitleaks
+        alias: gitleaks-history
+        name: Detect secrets in the whole git history
+        entry: gitleaks git --redact --verbose
+        stages: [manual]

@@ -3,6 +3,7 @@
 ```sh
 git clone https://github.com/3sztof/phonnect
 cd phonnect
+just setup      # once: dependencies + pre-commit hooks (lint, format, secret scanning)
 just test       # unit tests
 just dev-tray   # run the tray from the checkout
 just dev-run    # console-only watcher from the checkout (Ctrl+C to stop)
@@ -38,8 +39,8 @@ Useful commands (`npm install -g @fission-ai/openspec`): `openspec list`, `opens
 ## Code quality
 
 - **[Ruff](https://docs.astral.sh/ruff/)** checks and formats the code, configured in `pyproject.toml` (120-column lines). Use `just lint` to check and `just fmt` to fix and format.
-- **pre-commit hooks** run Ruff plus basic file checks (trailing whitespace, final newlines, valid YAML/TOML, merge markers, large files) on every commit. Set them up once per clone with `uv tool install pre-commit` and `pre-commit install`.
-- **CI** runs the same Ruff checks and validates the OpenSpec specs in a separate *lint* job.
+- **pre-commit hooks** run Ruff, basic file checks (trailing whitespace, final newlines, valid YAML/TOML, merge markers, large files) and **secret scanning** ([gitleaks](https://github.com/gitleaks/gitleaks)) on every commit. `just setup` installs them. `just secrets` scans the whole git history. A false positive can be allowed with a `gitleaks:allow` comment on that line.
+- **CI** runs the same hooks (including a full-history secret scan) and validates the OpenSpec specs in a separate *lint* job.
 - **Type checking** with Astral's [ty](https://docs.astral.sh/ty/) is available as `just typecheck`. It isn't enforced yet: it still reports about 20 issues, mostly `Optional` values that need a guard.
 - **Editors:** Ruff's language server (`ruff server`, or the VS Code / Zed / Neovim Ruff extensions) picks up the same configuration, and ty also has a language server (`ty server`).
 
