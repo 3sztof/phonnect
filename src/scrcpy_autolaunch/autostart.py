@@ -69,6 +69,42 @@ def disable() -> bool:
     return True
 
 
+# ── app menu entry (Start menu / Linux app launcher) ─────────────────────────
+
+
+def menu_entry_path() -> Path | None:
+    """Where the app-menu shortcut lives, or None where we don't create one (macOS)."""
+    home = Path.home()
+    if IS_WINDOWS:
+        appdata = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming")
+        return appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "scrcpy-autolaunch.lnk"
+    if IS_MAC:
+        return None  # would need an .app bundle
+    data = Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
+    return data / "applications" / "scrcpy-autolaunch.desktop"
+
+
+def add_menu_entry(cmd: list[str] | None = None) -> Path | None:
+    path = menu_entry_path()
+    if path is None:
+        return None
+    cmd = cmd or tray_command()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if IS_WINDOWS:
+        _write_windows_shortcut(path, cmd)
+    else:
+        path.write_text(linux_desktop_entry(cmd, autostart=False), encoding="utf-8")
+    return path
+
+
+def remove_menu_entry() -> bool:
+    path = menu_entry_path()
+    if path is None or not path.exists():
+        return False
+    path.unlink()
+    return True
+
+
 def macos_plist(cmd: list[str]) -> bytes:
     return plistlib.dumps(
         {
@@ -90,20 +126,18 @@ def _desktop_quote(arg: str) -> str:
     return f'"{escaped}"'
 
 
-def linux_desktop_entry(cmd: list[str]) -> str:
-    return "\n".join(
-        [
-            "[Desktop Entry]",
-            "Type=Application",
-            "Name=scrcpy-autolaunch",
-            "Comment=Open scrcpy when an Android device connects",
-            "Exec=" + " ".join(_desktop_quote(a) for a in cmd),
-            "Icon=smartphone",
-            "Terminal=false",
-            "X-GNOME-Autostart-enabled=true",
-            "",
-        ]
-    )
+def linux_desktop_entry(cmd: list[str], autostart: bool = True) -> str:
+    lines = [
+        "[Desktop Entry]",
+        "Type=Application",
+        "Name=scrcpy-autolaunch",
+        "Comment=Open scrcpy when an Android device connects",
+        "Exec=" + " ".join(_desktop_quote(a) for a in cmd),
+        "Icon=smartphone",
+        "Terminal=false",
+    ]
+    lines.append("X-GNOME-Autostart-enabled=true" if autostart else "Categories=Utility;")
+    return "\n".join(lines + [""])
 
 
 def _write_windows_shortcut(path: Path, cmd: list[str]) -> None:

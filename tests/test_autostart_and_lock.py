@@ -30,3 +30,9 @@ def test_instance_lock_is_exclusive(tmp_path):
     a.release()
     assert b.acquire()
     b.release()
+
+
+def test_linux_menu_entry_is_not_an_autostart_entry():
+    entry = autostart.linux_desktop_entry(["/x/scrcpy-autolaunch-tray"], autostart=False)
+    assert "Categories=Utility;" in entry
+    assert "X-GNOME-Autostart-enabled" not in entry

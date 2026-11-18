@@ -201,6 +201,8 @@ def cmd_doctor(args) -> int:
 def cmd_install(args) -> int:
     path = autostart.enable()
     print(f"Start at login enabled: {path}")
+    if (menu := autostart.add_menu_entry()) is not None:
+        print(f"App menu entry: {menu}")
     if (legacy := legacy_startup_entry()) is not None:
         print(f"warning: old PowerShell watcher found in Startup: {legacy} (see README, 'Migrating from legacy')")
     if args.no_start:
@@ -212,6 +214,8 @@ def cmd_uninstall(args) -> int:
     cmd_stop(args)
     if autostart.disable():
         print(f"Removed start-at-login entry: {autostart.entry_path()}")
+    if autostart.remove_menu_entry():
+        print(f"Removed app menu entry: {autostart.menu_entry_path()}")
     if args.purge:
         for d in {paths.config_dir(), paths.state_dir()}:
             if d.exists():

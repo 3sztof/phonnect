@@ -38,7 +38,7 @@ just install
 1. Checks for uv, and if it's missing, shows the official install command and asks before running it.
 2. Installs the app and its dependencies (`pystray`, `Pillow`) with `uv tool install`, in an environment of their own.
 3. Runs `scrcpy-autolaunch doctor` to check for scrcpy, adb, tray support and connected devices.
-4. Enables start at login and starts the tray app.
+4. Enables start at login, adds an app menu entry (Start menu on Windows, app launcher on Linux) and starts the tray app.
 
 **Without just or a clone:**
 
@@ -46,6 +46,17 @@ just install
 uv tool install --python ">=3.11" git+https://github.com/3sztof/scrcpy-autolaunch
 scrcpy-autolaunch install
 ```
+
+## Starting and stopping
+
+It starts by itself at login. To start it by hand, use any of:
+- **Windows:** the **scrcpy-autolaunch** entry in the Start menu
+- **Linux:** the app launcher
+- **Any OS:** `scrcpy-autolaunch start` (or `just start`)
+
+Only one copy runs, so starting it again does nothing. Quit from the tray menu, or run `scrcpy-autolaunch stop`.
+
+It isn't listed under Windows "Installed apps", because uv manages it. To remove it, use `just uninstall` (see [Uninstall](#uninstall)).
 
 ## Phone setup (once)
 
@@ -126,6 +137,7 @@ Changing the audio or keyboard setting reopens an open mirror window to apply it
 | Settings | `%LOCALAPPDATA%\scrcpy-autolaunch\config.json` | `~/Library/Application Support/scrcpy-autolaunch/config.json` | `~/.config/scrcpy-autolaunch/config.json` |
 | Log, lock, remembered Wi-Fi phones | same folder | same folder | `~/.local/state/scrcpy-autolaunch/` |
 | Start at login | `shell:startup\scrcpy-autolaunch.lnk` | `~/Library/LaunchAgents/io.github.3sztof.scrcpy-autolaunch.plist` | `~/.config/autostart/scrcpy-autolaunch.desktop` |
+| App menu entry | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\scrcpy-autolaunch.lnk` | none | `~/.local/share/applications/scrcpy-autolaunch.desktop` |
 | App | `uv tool dir` | `uv tool dir` | `uv tool dir` |
 
 ### Settings (`config.json`)
