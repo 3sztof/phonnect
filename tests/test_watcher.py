@@ -31,10 +31,21 @@ class FakeProc:
         self.args = args
         self.returncode = None
         self.stdout = None
+        self.terminated = False
         FakeProc._next_pid += 1
         self.pid = FakeProc._next_pid
 
     def poll(self):
+        return self.returncode
+
+    def terminate(self):
+        self.terminated = True
+        self.returncode = 1
+
+    def kill(self):
+        self.terminate()
+
+    def wait(self, timeout=None):
         return self.returncode
 
     def close_window(self, code=0):
@@ -73,8 +84,38 @@ def test_launches_on_usb_connect():
     h.tick(USB_PHONE)
     assert len(h.procs) == 1
     assert h.procs[0].args == [
-        "scrcpy", "-s", USB_PHONE.serial, "--no-audio", "--stay-awake", "--keyboard=uhid"
+        "scrcpy", "-s", USB_PHONE.serial, "--stay-awake", "--no-audio", "--keyboard=uhid"
     ]
+
+
+def test_audio_modes():
+    h = Harness()
+    audio = lambda: [a for a in h.watcher.build_args(USB_PHONE) if "audio" in a]  # noqa: E731
+    assert audio() == ["--no-audio"]
+    h.watcher.config.audio = "both"
+    assert audio() == ["--audio-source=playback", "--audio-dup"]
+    h.watcher.config.audio = "pc"
+    assert audio() == []
+    h.watcher.scrcpy_version = (2, 5)
+    h.watcher.config.audio = "both"
+    assert audio() == ["--no-audio"], "too old for --audio-dup: keep sound on the phone"
+
+
+def test_legacy_no_audio_in_scrcpy_args_does_not_override_audio_mode():
+    h = Harness(scrcpy_args=["--no-audio", "--stay-awake"], audio="both")
+    args = h.watcher.build_args(USB_PHONE)
+    assert "--no-audio" not in args and "--audio-dup" in args
+
+
+def test_restart_sessions_relaunches_with_new_settings():
+    h = Harness()
+    h.tick(USB_PHONE)
+    h.watcher.config.audio = "both"
+    assert h.watcher.restart_sessions() == 1
+    assert h.procs[0].terminated
+    assert "--audio-dup" in h.procs[1].args
+    h.tick(USB_PHONE)
+    assert h.notes == [], "a restart must not be reported as a failure"
 
 
 def test_keyboard_toggle_and_user_override():
@@ -114,7 +155,7 @@ def test_wireless_off_by_default_and_gets_extra_args_when_on():
     assert h.procs == []
     h = Harness(auto_wireless=True)
     h.tick(WIFI_OTHER_PHONE)
-    assert h.procs[0].args[-3:] == ["--max-size=1600", "--video-bit-rate=6M", "--keyboard=uhid"]
+    assert h.procs[0].args[-4:] == ["--max-size=1600", "--video-bit-rate=6M", "--no-audio", "--keyboard=uhid"]
 
 
 def test_same_phone_on_usb_and_wifi_gets_one_window_via_usb():

@@ -170,9 +170,12 @@ class Watcher:
         return False
 
     def build_args(self, dev: Device) -> list[str]:
-        args = [self.scrcpy, "-s", dev.serial, *self.config.scrcpy_args]
+        # Audio is controlled by config.audio; drop a --no-audio left over from older configs.
+        base = [a for a in self.config.scrcpy_args if a != "--no-audio"]
+        args = [self.scrcpy, "-s", dev.serial, *base]
         if dev.transport == WIRELESS:
-            args += self.config.wireless_extra_args
+            args += [a for a in self.config.wireless_extra_args if a != "--no-audio"]
+        args += self._audio_args()
         user_set_keyboard = any(a.startswith("--keyboard") or a in ("-K", "--hid-keyboard") for a in args)
         if self.config.hide_phone_keyboard and not user_set_keyboard:
             if self.scrcpy_version is None or self.scrcpy_version >= (2, 4):  # --keyboard was added in 2.4
@@ -181,6 +184,38 @@ class Watcher:
             # scrcpy 1.x has no audio support (and no --no-audio flag).
             args = [a for a in args if not a.startswith(("--no-audio", "--audio"))]
         return args
+
+    def _audio_args(self) -> list[str]:
+        mode = self.config.audio
+        version = self.scrcpy_version
+        if mode == "both":
+            if version is None or version >= (2, 6):  # --audio-dup was added in 2.6
+                return ["--audio-source=playback", "--audio-dup"]
+            log.warning("Audio 'PC and phone' needs scrcpy 2.6 or newer; keeping audio on the phone")
+            return ["--no-audio"]
+        if mode == "pc":
+            return []  # scrcpy's default: forward the whole output, phone goes silent
+        return ["--no-audio"]
+
+    def restart_sessions(self) -> int:
+        """Reopen running scrcpy windows so changed settings take effect."""
+        restarted = 0
+        with self._lock:
+            active = [(hw, s) for hw, s in self.sessions.items() if s.proc.poll() is None]
+            for hw, s in active:
+                del self.sessions[hw]  # not reaped: no "failed" notification for this exit
+                s.proc.terminate()
+            for hw, s in active:
+                try:
+                    s.proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    s.proc.kill()
+                dev = self.devices.get(s.device.serial)
+                if dev is not None and dev.online:
+                    log.info("Restarting scrcpy for %s to apply new settings", dev.label)
+                    restarted += self._launch(dev)
+        self._on_change()
+        return restarted
 
     def _launch(self, dev: Device) -> bool:
         hw = self.hw_ids.get(dev.serial, dev.serial)

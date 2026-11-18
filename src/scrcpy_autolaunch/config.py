@@ -19,9 +19,11 @@ class Config:
     # Adds --keyboard=uhid: scrcpy acts as a physical keyboard, so Android hides
     # the on-screen keyboard while mirroring. Nothing changes on the phone permanently.
     hide_phone_keyboard: bool = True
-    # --no-audio keeps audio playing on the phone; scrcpy 2.0+ would otherwise
-    # capture it (and silence it on the device, e.g. a Bluetooth amp).
-    scrcpy_args: list[str] = field(default_factory=lambda: ["--no-audio", "--stay-awake"])
+    # "off":  --no-audio, sound stays on the phone only (default)
+    # "both": play on the PC *and* keep playing on the phone (Android 13+; apps may opt out)
+    # "pc":   move sound to the PC; the phone goes silent (also e.g. a Bluetooth amp)
+    audio: str = "off"
+    scrcpy_args: list[str] = field(default_factory=lambda: ["--stay-awake"])
     # Extra args for Wi-Fi connections: less bandwidth, less 2.4 GHz contention
     # with Bluetooth.
     wireless_extra_args: list[str] = field(

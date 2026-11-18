@@ -20,6 +20,12 @@ GREEN = (61, 220, 132, 255)  # Android green: a device is connected
 GREY = (150, 150, 150, 255)  # waiting for a device
 RED = (220, 60, 60, 255)  # adb/scrcpy not found
 
+AUDIO_MODES = (
+    ("off", "Off (sound stays on the phone)"),
+    ("both", "PC and phone (Android 13+)"),
+    ("pc", "PC only (phone goes silent)"),
+)
+
 
 def make_icon(color: tuple[int, int, int, int]):
     from PIL import Image, ImageDraw
@@ -143,8 +149,17 @@ class TrayApp:
         )
         yield Item(
             "Hide phone keyboard while mirroring",
-            self._toggle("hide_phone_keyboard"),
+            self._toggle("hide_phone_keyboard", restart=True),
             checked=lambda _: self.config.hide_phone_keyboard,
+        )
+        yield Item(
+            "Audio",
+            Menu(
+                *(
+                    Item(text, self._set_audio(mode), checked=self._audio_is(mode), radio=True)
+                    for mode, text in AUDIO_MODES
+                )
+            ),
         )
         yield Item(
             "Wi-Fi devices",
@@ -223,14 +238,35 @@ class TrayApp:
         if self.watcher:
             self._background(self.watcher.mirror_now)
 
-    def _toggle(self, key: str):
+    def _toggle(self, key: str, restart: bool = False):
         def action(*_):
             setattr(self.config, key, not getattr(self.config, key))
             self.config.save()
             log.info("Setting %s = %s", key, getattr(self.config, key))
             self.icon.update_menu()
+            if restart:
+                self._restart_sessions()
 
         return action
+
+    def _audio_is(self, mode: str):
+        return lambda _item: self.config.audio == mode
+
+    def _set_audio(self, mode: str):
+        def action(*_):
+            if self.config.audio == mode:
+                return
+            self.config.audio = mode
+            self.config.save()
+            log.info("Setting audio = %s", mode)
+            self.icon.update_menu()
+            self._restart_sessions()
+
+        return action
+
+    def _restart_sessions(self) -> None:
+        if self.watcher:
+            self._background(self.watcher.restart_sessions)
 
     def _toggle_autostart(self, *_):
         try:

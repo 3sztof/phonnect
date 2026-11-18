@@ -4,7 +4,7 @@ Opens an [scrcpy](https://github.com/Genymobile/scrcpy) mirror window as soon as
 
 - **USB:** plug the phone in and the mirror opens. Closing the window doesn't reopen it until you unplug and replug.
 - **Wi-Fi (optional):** pair the phone once from the tray menu, then connect from the tray or let it auto-launch.
-- **Audio stays on the phone:** scrcpy runs with `--no-audio`, so audio keeps playing on the phone, including over Bluetooth (for example, the Positive Grid Spark app's backing tracks to the amp). Bluetooth itself is never touched.
+- **Audio stays on the phone by default**, including over Bluetooth (for example, the Positive Grid Spark app's backing tracks to the amp). The **Audio** menu can also play sound on the PC, either alongside the phone or instead of it. Bluetooth itself is never touched.
 - **One instance only**, with a timestamped log that stays small (about 2 MB at most).
 
 | Platform | Status |
@@ -80,7 +80,8 @@ On Windows, left- or right-click the icon to open the menu.
 | *(status lines)* | Connected phones, and whether each is being mirrored |
 | **Mirror now** | Opens a window for every connected phone that doesn't have one |
 | Auto-launch on USB / Wi-Fi | Turns auto-launch on or off for each connection type |
-| Hide phone keyboard while mirroring | scrcpy acts as a physical keyboard (`--keyboard=uhid`), so the phone hides its on-screen keyboard and you type on the PC. Applies to the next window |
+| Hide phone keyboard while mirroring | scrcpy acts as a physical keyboard (`--keyboard=uhid`), so the phone hides its on-screen keyboard and you type on the PC. Reopens an open window to apply |
+| Audio → Off / PC and phone / PC only | **Off** (default): sound stays on the phone. **PC and phone**: also plays on the PC while the phone keeps playing, for example to a Bluetooth amp (Android 13+, scrcpy 2.6+; apps can opt out of capture). **PC only**: sound moves to the PC and the phone goes silent. Reopens an open window to apply |
 | Wi-Fi devices → *phone* | Click to connect, click again to disconnect (checked = connected) |
 | Wi-Fi devices → Manage… / Pair… / Connect to address… / Disconnect all | |
 | Start at login | Adds or removes the start-at-login entry |
@@ -123,7 +124,8 @@ The icon is green when a phone is connected, grey while it waits for one, and re
   "auto_usb": true,
   "auto_wireless": false,
   "hide_phone_keyboard": true,
-  "scrcpy_args": ["--no-audio", "--stay-awake"],
+  "audio": "off",
+  "scrcpy_args": ["--stay-awake"],
   "wireless_extra_args": ["--max-size=1600", "--video-bit-rate=6M"],
   "poll_interval": 1.0,
   "adb_path": null,
