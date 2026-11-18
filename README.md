@@ -120,8 +120,9 @@ phonnect log           # the end of the log
 
 | | |
 |---|---|
-| Windows 10/11 | Tested |
-| macOS, Linux | Experimental: unit tests pass in CI, but nobody has tried it with a real phone yet |
+| Windows 10/11 | Main platform: developed and tested here with real phones |
+| macOS | Tested with a real phone, but not the main platform: likely less stable than on Windows |
+| Linux | Untested: unit tests pass in CI, but nobody has tried it with a real phone yet |
 
 ## Documentation
 
