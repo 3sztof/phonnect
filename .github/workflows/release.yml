@@ -50,7 +50,7 @@ jobs:
           \`\`\`
           EOF
           gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "phonnect $VERSION" \
+            --title "Phonnect $VERSION" \
             --notes-file notes.md \
             --generate-notes \
             --verify-tag

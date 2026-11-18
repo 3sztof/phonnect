@@ -91,7 +91,13 @@ def test_launches_on_usb_connect():
     h.tick(USB_PHONE)
     assert len(h.procs) == 1
     assert h.procs[0].args == [
-        "scrcpy", "-s", USB_PHONE.serial, "--stay-awake", "--no-audio", "--mouse-bind=+hbs:bhsn", "--keyboard=uhid"
+        "scrcpy",
+        "-s",
+        USB_PHONE.serial,
+        "--stay-awake",
+        "--no-audio",
+        "--mouse-bind=+hbs:bhsn",
+        "--keyboard=uhid",
     ]
 
 
@@ -162,7 +168,13 @@ def test_wireless_off_by_default_and_gets_extra_args_when_on():
     assert h.procs == []
     h = Harness(auto_wireless=True)
     h.tick(WIFI_OTHER_PHONE)
-    assert h.procs[0].args[-5:] == ["--max-size=1600", "--video-bit-rate=6M", "--no-audio", "--mouse-bind=+hbs:bhsn", "--keyboard=uhid"]
+    assert h.procs[0].args[-5:] == [
+        "--max-size=1600",
+        "--video-bit-rate=6M",
+        "--no-audio",
+        "--mouse-bind=+hbs:bhsn",
+        "--keyboard=uhid",
+    ]
 
 
 def test_same_phone_on_usb_and_wifi_gets_one_window_via_usb():

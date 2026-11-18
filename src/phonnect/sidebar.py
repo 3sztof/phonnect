@@ -97,7 +97,12 @@ def pictures_dir() -> Path:
             from ctypes import wintypes
 
             class GUID(ctypes.Structure):
-                _fields_ = [("a", wintypes.DWORD), ("b", wintypes.WORD), ("c", wintypes.WORD), ("d", ctypes.c_ubyte * 8)]
+                _fields_ = [
+                    ("a", wintypes.DWORD),
+                    ("b", wintypes.WORD),
+                    ("c", wintypes.WORD),
+                    ("d", ctypes.c_ubyte * 8),
+                ]
 
             # FOLDERID_Pictures {33E28130-4E1E-4676-835A-98395C3BC3BB}; follows OneDrive redirection.
             fid = GUID(0x33E28130, 0x4E1E, 0x4676, (ctypes.c_ubyte * 8)(0x83, 0x5A, 0x98, 0x39, 0x5C, 0x3B, 0xC3, 0xBB))
@@ -162,7 +167,9 @@ def process_alive(pid: int) -> bool:
 # ── docking (Windows) ────────────────────────────────────────────────────────
 
 
-def dock_position(target: tuple[int, int, int, int], width: int, screen: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+def dock_position(
+    target: tuple[int, int, int, int], width: int, screen: tuple[int, int, int, int]
+) -> tuple[int, int, int, int]:
     """Where the bar goes for a mirror window at `target` (left, top, right, bottom).
 
     Right of the window; on its left if there's no room on the right of the screen
@@ -348,7 +355,10 @@ class Sidebar:
         self.slider = slider
         Tooltip(
             slider,
-            lambda: "Content size: drag down to fit more on the screen.\nYour phone's own setting comes back when the window closes.",
+            lambda: (
+                "Content size: drag down to fit more on the screen.\n"
+                "Your phone's own setting comes back when the window closes."
+            ),
         )
 
         self.status = ttk.Label(frame, text="", anchor="center", font=("TkDefaultFont", 8), wraplength=self.width - 8)
@@ -516,7 +526,9 @@ def run_sidebar(adb: str, serial: str, hw: str, pid: int, name: str) -> int:
     except Exception as exc:
         if ctl is not None:
             try:
-                control.request(*ctl, {"cmd": "log", "level": "error", "message": f"[{serial}] sidebar crashed: {exc!r}"})
+                control.request(
+                    *ctl, {"cmd": "log", "level": "error", "message": f"[{serial}] sidebar crashed: {exc!r}"}
+                )
             except Exception:
                 pass
         return 1

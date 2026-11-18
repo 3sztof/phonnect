@@ -35,6 +35,14 @@ The app's behavior and design decisions are written down with [OpenSpec](https:/
 
 Useful commands (`npm install -g @fission-ai/openspec`): `openspec list`, `openspec show <change>`, `openspec validate --specs --strict`. With an AI assistant, use the `openspec-propose`, `openspec-apply-change` and `openspec-archive-change` skills in `.agents/skills/`.
 
+## Code quality
+
+- **[Ruff](https://docs.astral.sh/ruff/)** checks and formats the code, configured in `pyproject.toml` (120-column lines). Use `just lint` to check and `just fmt` to fix and format.
+- **pre-commit hooks** run Ruff plus basic file checks (trailing whitespace, final newlines, valid YAML/TOML, merge markers, large files) on every commit. Set them up once per clone with `uv tool install pre-commit` and `pre-commit install`.
+- **CI** runs the same Ruff checks and validates the OpenSpec specs in a separate *lint* job.
+- **Type checking** with Astral's [ty](https://docs.astral.sh/ty/) is available as `just typecheck`. It isn't enforced yet: it still reports about 20 issues, mostly `Optional` values that need a guard.
+- **Editors:** Ruff's language server (`ruff server`, or the VS Code / Zed / Neovim Ruff extensions) picks up the same configuration, and ty also has a language server (`ty server`).
+
 ## Tests and CI
 
 `just test` runs the unit tests. They use fake adb and scrcpy processes, so no phone is needed.

@@ -45,15 +45,13 @@ class Config:
     scrcpy_args: list[str] = field(default_factory=lambda: ["--stay-awake"])
     # Extra args for Wi-Fi connections: less bandwidth, less 2.4 GHz contention
     # with Bluetooth.
-    wireless_extra_args: list[str] = field(
-        default_factory=lambda: ["--max-size=1600", "--video-bit-rate=6M"]
-    )
+    wireless_extra_args: list[str] = field(default_factory=lambda: ["--max-size=1600", "--video-bit-rate=6M"])
     poll_interval: float = 1.0
     adb_path: str | None = None
     scrcpy_path: str | None = None
 
     @classmethod
-    def load(cls, path: Path | None = None) -> "Config":
+    def load(cls, path: Path | None = None) -> Config:
         path = path or paths.config_file()
         try:
             data = json.loads(path.read_text(encoding="utf-8"))

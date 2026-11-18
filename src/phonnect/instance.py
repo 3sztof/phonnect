@@ -18,7 +18,7 @@ class InstanceLock:
 
     def acquire(self) -> bool:
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(self.lock_path, "a+")
+        fh = open(self.lock_path, "a+")  # noqa: SIM115 - stays open: holding it is the lock
         try:
             if IS_WINDOWS:
                 import msvcrt
@@ -48,7 +48,7 @@ class InstanceLock:
         self._fh.close()
         self._fh = None
 
-    def __enter__(self) -> "InstanceLock":
+    def __enter__(self) -> InstanceLock:
         return self
 
     def __exit__(self, *exc) -> None:

@@ -85,7 +85,10 @@ def title_bar_hwnd(hwnd: int, dark: bool | None = None) -> None:
         value = ctypes.c_int(1 if dark else 0)
         # DWMWA_USE_IMMERSIVE_DARK_MODE is 20; Windows 10 builds before 20H1 used 19.
         for attribute in (20, 19):
-            if ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(value), ctypes.sizeof(value)) == 0:
+            if (
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(value), ctypes.sizeof(value))
+                == 0
+            ):
                 break
         # Repaint the frame now rather than at the next focus change.
         SWP_NOSIZE, SWP_NOMOVE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_FRAMECHANGED = 0x1, 0x2, 0x4, 0x10, 0x20

@@ -1,6 +1,7 @@
+from test_watcher import USB_PHONE, Harness
+
 from phonnect.adb import LANDSCAPE
 from phonnect.phone_state import RotationKeeper
-from test_watcher import USB_PHONE, Harness
 
 HW = USB_PHONE.serial
 PORTRAIT_AUTO = {"method": "wm", "mode": "free", "rotation": 0, "fixed": "default"}

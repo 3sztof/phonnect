@@ -66,7 +66,7 @@ def draw_symbol(size: int, stroke, phone_fill=None, supersample: int = 4):
     d.rounded_rectangle(
         (x0 - w / 2, y0 - w / 2, x1 + w / 2, y1 + w / 2), radius=2 * k + w / 2, outline=stroke, width=round(w)
     )
-    return img.resize((size, size), Image.LANCZOS)
+    return img.resize((size, size), Image.Resampling.LANCZOS)
 
 
 def app_icon(size: int = 256):
@@ -76,7 +76,7 @@ def app_icon(size: int = 256):
     big = size * 4
     tile = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     ImageDraw.Draw(tile).rounded_rectangle((0, 0, big - 1, big - 1), radius=big * 0.22, fill=BACKGROUND)
-    tile = tile.resize((size, size), Image.LANCZOS)
+    tile = tile.resize((size, size), Image.Resampling.LANCZOS)
     inner = round(size * 0.72)
     symbol = draw_symbol(inner, WHITE, phone_fill=GREEN)
     offset = (size - inner) // 2

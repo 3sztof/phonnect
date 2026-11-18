@@ -2,13 +2,13 @@ import json
 import os
 
 import pytest
+from test_watcher import USB_PHONE, Harness
 
 from phonnect import control
 from phonnect.adb import parse_wm_density
 from phonnect.osutil import linux_terminal_command
 from phonnect.phone_state import DensityKeeper
 from phonnect.sidebar import dock_position, process_alive
-from test_watcher import USB_PHONE, Harness
 
 HW = USB_PHONE.serial
 

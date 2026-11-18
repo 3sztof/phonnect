@@ -32,7 +32,7 @@ def _search_dirs() -> list[Path]:
             *winget,
             home / "scoop" / "apps" / "scrcpy" / "current",
             home / "scoop" / "shims",
-            Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "chocolatey" / "bin",
+            Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "chocolatey" / "bin",
             local / "Android" / "Sdk" / "platform-tools",
         ]
     if IS_MAC:

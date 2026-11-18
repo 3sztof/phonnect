@@ -84,14 +84,23 @@ def legacy_entries() -> list[Path]:
     """Start-at-login and menu entries left by the app's old name (scrcpy-autolaunch)."""
     home = Path.home()
     if IS_WINDOWS:
-        programs = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming") / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+        programs = (
+            Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming")
+            / "Microsoft"
+            / "Windows"
+            / "Start Menu"
+            / "Programs"
+        )
         candidates = [programs / "Startup" / "scrcpy-autolaunch.lnk", programs / "scrcpy-autolaunch.lnk"]
     elif IS_MAC:
         candidates = [home / "Library" / "LaunchAgents" / "io.github.3sztof.scrcpy-autolaunch.plist"]
     else:
         config = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
         data = Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
-        candidates = [config / "autostart" / "scrcpy-autolaunch.desktop", data / "applications" / "scrcpy-autolaunch.desktop"]
+        candidates = [
+            config / "autostart" / "scrcpy-autolaunch.desktop",
+            data / "applications" / "scrcpy-autolaunch.desktop",
+        ]
     return [p for p in candidates if p.exists()]
 
 
@@ -157,7 +166,7 @@ def macos_plist(cmd: list[str]) -> bytes:
 
 
 def _desktop_quote(arg: str) -> str:
-    if arg and not any(c in arg for c in ' \t\n"\'\\$`'):
+    if arg and not any(c in arg for c in " \t\n\"'\\$`"):
         return arg
     escaped = arg.replace("\\", "\\\\").replace('"', '\\"').replace("`", "\\`").replace("$", "\\$")
     return f'"{escaped}"'

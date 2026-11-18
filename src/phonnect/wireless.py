@@ -17,9 +17,9 @@ import re
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
-from typing import Callable
 
 from phonnect import paths
 from phonnect.adb import WIRELESS, Adb
@@ -193,7 +193,10 @@ def connect_verified(adb: Adb, address: str, wait: float = 4.0) -> tuple[bool, s
             return True, out
         time.sleep(0.5)
     adb.disconnect(address)
-    return False, f"{address} connected but stayed '{state or 'missing'}' (wrong port, or the phone rejected this computer)"
+    return (
+        False,
+        f"{address} connected but stayed '{state or 'missing'}' (wrong port, or the phone rejected this computer)",
+    )
 
 
 def drop_offline(adb: Adb, ip: str | None = None) -> None:
@@ -211,7 +214,7 @@ def scan_ports(ip: str, ports=SCAN_PORTS, timeout: float = 0.5, concurrency: int
         async with sem:
             try:
                 _, writer = await asyncio.wait_for(asyncio.open_connection(ip, port), timeout)
-            except (OSError, asyncio.TimeoutError):
+            except (TimeoutError, OSError):
                 return None
             writer.close()
             try:

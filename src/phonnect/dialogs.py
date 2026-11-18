@@ -148,7 +148,11 @@ def _form(parent, kind: str, adb: Adb, known: KnownDevices, on_finished):
             if ok:
                 known.remember(hw, model=_model(adb, result), address=result)
                 return True, f"Paired and connected ({result})."
-            return True, f"Paired, but could not connect yet:\n{result}\n\nTry Connect to address with the port from the Wireless debugging screen."
+            return (
+                True,
+                f"Paired, but could not connect yet:\n{result}\n\n"
+                "Try Connect to address with the port from the Wireless debugging screen.",
+            )
         progress(f"Connecting to {addr}…")
         drop_offline(adb, split_address(addr)[0])
         ok, out = connect_verified(adb, addr)

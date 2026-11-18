@@ -44,6 +44,20 @@ log lines="30":
 test:
     uv run pytest -q
 
+# Lint and format check (same as CI), plus the pre-commit hooks if installed
+lint:
+    uv run ruff check
+    uv run ruff format --check
+
+# Fix what ruff can fix and format the code
+fmt:
+    uv run ruff check --fix
+    uv run ruff format
+
+# Type check with ty (experimental, not enforced yet)
+typecheck:
+    uvx ty check src
+
 # Bump the version, tag vX.Y.Z and push; CI then publishes the GitHub Release
 release version:
     uv run python scripts/release.py {{version}}

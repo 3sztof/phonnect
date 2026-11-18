@@ -184,7 +184,7 @@ def cmd_status(args) -> int:
     print(f"running:        {'yes, pid ' + str(pid) if pid is not None else 'no'}")
     print(f"start at login: {'yes, ' + str(autostart.entry_path()) if autostart.is_enabled() else 'no'}")
     print(f"auto-launch:    USB {'on' if cfg.auto_usb else 'off'}, Wi-Fi {'on' if cfg.auto_wireless else 'off'}")
-    print(f"scrcpy:         {scrcpy or 'NOT FOUND'}{'  (v%d.%d)' % version if version else ''}")
+    print(f"scrcpy:         {scrcpy or 'NOT FOUND'}{f'  (v{version[0]}.{version[1]})' if version else ''}")
     print(f"adb:            {adb or 'NOT FOUND'}")
     print(f"config:         {paths.config_file()}")
     print(f"log:            {paths.log_file()}")
@@ -283,7 +283,10 @@ def cmd_install(args) -> int:
     if (legacy := legacy_startup_entry()) is not None:
         print(f"warning: old PowerShell watcher found in Startup: {legacy} (see README, 'Migrating from legacy')")
     if shutil.which("scrcpy-autolaunch"):
-        print("Note: the old scrcpy-autolaunch command is still installed. Remove it with: uv tool uninstall scrcpy-autolaunch")
+        print(
+            "Note: the old scrcpy-autolaunch command is still installed. "
+            "Remove it with: uv tool uninstall scrcpy-autolaunch"
+        )
     if args.no_start:
         return 0
     return cmd_start(args)
@@ -298,7 +301,12 @@ def cmd_uninstall(args) -> int:
     for p in autostart.remove_legacy_entries():
         print(f"Removed old entry: {p}")
     if args.purge:
-        dirs = {paths.config_dir(), paths.state_dir(), paths.config_dir(paths.LEGACY_APP), paths.state_dir(paths.LEGACY_APP)}
+        dirs = {
+            paths.config_dir(),
+            paths.state_dir(),
+            paths.config_dir(paths.LEGACY_APP),
+            paths.state_dir(paths.LEGACY_APP),
+        }
         for d in dirs:
             if d.exists():
                 shutil.rmtree(d, ignore_errors=True)
@@ -352,7 +360,9 @@ def cmd_wifi(args) -> int:
         if not devices:
             print("No paired or remembered phones. Pair one with: phonnect pair")
         for d in devices:
-            print(f"{d.label:20} {status_of(d, current):16} last={d.address or '-':22} ip={d.ip or '-':16} id={d.hw_id}")
+            print(
+                f"{d.label:20} {status_of(d, current):16} last={d.address or '-':22} ip={d.ip or '-':16} id={d.hw_id}"
+            )
         return 0
     wanted = args.reconnect.lower()
     matches = [d for d in devices if wanted in (d.hw_id.lower(), d.label.lower()) or wanted == "all"]
@@ -478,9 +488,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp = add("pair", cmd_pair, "pair a phone for wireless debugging (opens a dialog without arguments)")
     sp.add_argument("address", nargs="?", help="IP:PORT from 'Pair device with pairing code'")
     sp.add_argument("code", nargs="?", help="6-digit pairing code")
-    add("connect", cmd_connect, "connect over Wi-Fi to IP:PORT (opens the Wi-Fi devices window without arguments)").add_argument(
-        "address", nargs="?", help="IP:PORT shown on the Wireless debugging screen"
-    )
+    add(
+        "connect", cmd_connect, "connect over Wi-Fi to IP:PORT (opens the Wi-Fi devices window without arguments)"
+    ).add_argument("address", nargs="?", help="IP:PORT shown on the Wireless debugging screen")
     add("wifi", cmd_wifi, "list paired / remembered phones, or reconnect to one").add_argument(
         "--reconnect", metavar="NAME|ID|all", help="reconnect (tries mDNS, last address, then a port scan)"
     )

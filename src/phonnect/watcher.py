@@ -16,8 +16,8 @@ import os
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from phonnect.adb import EMULATOR, USB, WIRELESS, Adb, Device
 from phonnect.config import Config
@@ -366,7 +366,11 @@ class Watcher:
 
         cmd = msg.get("cmd")
         if cmd == "state":
-            return {"ok": True, "force_landscape": self.config.force_landscape, "content_scale": self.config.content_scale}
+            return {
+                "ok": True,
+                "force_landscape": self.config.force_landscape,
+                "content_scale": self.config.content_scale,
+            }
         if cmd == "set_landscape":
             self.config.force_landscape = bool(msg.get("on"))
             self.config.save()
@@ -389,7 +393,11 @@ class Watcher:
             if target == "all":
                 return {"ok": True, "started": self.mirror_now()}
             for hw, devs, _ in self.phones():
-                names = {hw.lower(), *(d.serial.lower() for d in devs), *(d.model.replace("_", " ").lower() for d in devs)}
+                names = {
+                    hw.lower(),
+                    *(d.serial.lower() for d in devs),
+                    *(d.model.replace("_", " ").lower() for d in devs),
+                }
                 if target in names:
                     return {"ok": True, "result": self.mirror(hw)}
             return {"ok": False, "error": f"no connected phone matches {target!r}"}
@@ -497,9 +505,9 @@ class Watcher:
         args += self._audio_args()
         args += self._mouse_args(args)
         user_set_keyboard = any(a.startswith("--keyboard") or a in ("-K", "--hid-keyboard") for a in args)
-        if self.config.hide_phone_keyboard and not user_set_keyboard:
-            if self.scrcpy_version is None or self.scrcpy_version >= (2, 4):  # --keyboard was added in 2.4
-                args.append("--keyboard=uhid")
+        keyboard_supported = self.scrcpy_version is None or self.scrcpy_version >= (2, 4)  # added in 2.4
+        if self.config.hide_phone_keyboard and not user_set_keyboard and keyboard_supported:
+            args.append("--keyboard=uhid")
         if self.scrcpy_version is not None and self.scrcpy_version < (2, 0):
             # scrcpy 1.x has no audio support (and no --no-audio flag).
             args = [a for a in args if not a.startswith(("--no-audio", "--audio"))]
@@ -526,7 +534,7 @@ class Watcher:
                 del self.sessions[hw]  # not reaped: no "failed" notification for this exit
                 s.proc.terminate()
                 self._close_sidebar(s)
-            for hw, s in active:
+            for _hw, s in active:
                 try:
                     s.proc.wait(timeout=5)
                 except subprocess.TimeoutExpired:
@@ -616,7 +624,11 @@ class Watcher:
             else:
                 wifi = {True: "on", False: "off", None: "unknown"}[enabled]
             log.info("Remembered %s: Wi-Fi IP %s, Wireless debugging %s", dev.label, ip or "unknown", wifi)
-            if dev.transport == WIRELESS and self.config.auto_usb and self.adb.usb_debugging_enabled(dev.serial) is False:
+            if (
+                dev.transport == WIRELESS
+                and self.config.auto_usb
+                and self.adb.usb_debugging_enabled(dev.serial) is False
+            ):
                 msg = (
                     f"USB debugging is off on {dev.label.rsplit(' (', 1)[0]}, so plugging it in won't open "
                     "a window. Turn it on in Settings > System > Developer options > USB debugging."

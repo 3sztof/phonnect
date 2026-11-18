@@ -15,7 +15,7 @@ import secrets
 import socket
 import socketserver
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 from phonnect import paths
 
@@ -53,7 +53,7 @@ class ControlServer:
         self.address = f"{host}:{port}"
         self._thread = threading.Thread(target=self._server.serve_forever, name="control", daemon=True)
 
-    def start(self) -> "ControlServer":
+    def start(self) -> ControlServer:
         self._thread.start()
         return self
 

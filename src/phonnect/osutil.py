@@ -37,9 +37,7 @@ def spawn_detached(cmd: list[str]) -> subprocess.Popen:
         close_fds=True,
     )
     if IS_WINDOWS:
-        kwargs["creationflags"] = (
-            subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-        )
+        kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     else:
         kwargs["start_new_session"] = True
     return subprocess.Popen(cmd, **kwargs)
@@ -116,8 +114,10 @@ def open_terminal(args: list[str]) -> None:
         spawn_detached(
             [
                 "osascript",
-                "-e", f'tell application "Terminal" to do script "{command}"',
-                "-e", 'tell application "Terminal" to activate',
+                "-e",
+                f'tell application "Terminal" to do script "{command}"',
+                "-e",
+                'tell application "Terminal" to activate',
             ]  # fmt: skip
         )
     else:

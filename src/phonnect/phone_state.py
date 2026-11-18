@@ -17,8 +17,8 @@ import json
 import logging
 import queue
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from phonnect import paths
 from phonnect.adb import LANDSCAPE
