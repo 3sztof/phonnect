@@ -119,9 +119,10 @@ class TrayApp:
             else None
         )
         if self.watcher is not None:
-            from scrcpy_autolaunch.rotation import RotationKeeper
+            from scrcpy_autolaunch.cli import attach_helpers
 
-            self.watcher.rotation = RotationKeeper(adb, self.watcher.online_serial)
+            attach_helpers(self.watcher)
+            self.watcher.on_quit = self.quit
         self.icon = icon_class(pystray)(
             "scrcpy-autolaunch",
             icon=icons.tray_icon("problem" if problem else "waiting"),
@@ -147,7 +148,10 @@ class TrayApp:
         log.info("Quit from tray menu")
         if self.watcher:
             self.watcher.stop()
-            self.watcher.restore_all_rotation()
+            self.watcher.restore_all_phone_settings()
+        from scrcpy_autolaunch.control import remove_endpoint
+
+        remove_endpoint()
         self.icon.stop()
 
     # ── state shown in the tray ──────────────────────────────────────────────
@@ -241,6 +245,11 @@ class TrayApp:
                     checked=lambda _: self.config.keep_wifi_connected,
                 ),
                 Item(
+                    "Show sidebar next to the window",
+                    self._toggle_sidebar,
+                    checked=lambda _: self.config.show_sidebar,
+                ),
+                Item(
                     "Hide phone keyboard while mirroring",
                     self._toggle("hide_phone_keyboard", restart=True),
                     checked=lambda _: self.config.hide_phone_keyboard,
@@ -267,6 +276,7 @@ class TrayApp:
                 if IS_WINDOWS:
                     sub.append(Item("Show window", self._show(r.hw_id), default=True))
                 sub.append(Item("Stop mirroring", self._stop(r.hw_id)))
+                sub.append(Item("Open shell", self._shell(r.hw_id)))
                 if r.wifi_serial:
                     sub.append(Item("Disconnect Wi-Fi", self._disconnect(r.wifi_serial)))
                 yield Item(f"{r.name}: mirroring ({r.via_text})", Menu(*sub))
@@ -293,6 +303,16 @@ class TrayApp:
             pid = self.watcher.session_pid(hw_id) if self.watcher else None
             if pid is None or not focus_process_window(pid):
                 log.info("No scrcpy window found for %s", hw_id)
+
+        return action
+
+    def _shell(self, hw_id: str):
+        def action(*_):
+            try:
+                if self.watcher and not self.watcher.open_shell(hw_id):
+                    self.notify("The phone isn't connected.")
+            except OSError as exc:
+                self.notify(f"Could not open a terminal: {exc}")
 
         return action
 
@@ -360,6 +380,14 @@ class TrayApp:
                 self._restart_sessions()
 
         return action
+
+    def _toggle_sidebar(self, *_):
+        self.config.show_sidebar = not self.config.show_sidebar
+        self.config.save()
+        log.info("Setting show_sidebar = %s", self.config.show_sidebar)
+        self.icon.update_menu()
+        if self.watcher:
+            self.watcher.apply_sidebar_setting()
 
     def _toggle_landscape(self, *_):
         self.config.force_landscape = not self.config.force_landscape

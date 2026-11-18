@@ -19,7 +19,10 @@ just install    # install the checkout as the real app
 - **The tray** (`tray.py`, pystray) builds its menu from the watcher's phones plus the remembered ones.
 - **The Wi-Fi windows** (`dialogs.py`, Tk) run in a separate process, because macOS needs the main thread for both Tk and the tray.
 - **Wi-Fi** (`wireless.py`): remembered phones, the paired list from `~/.android/adb_known_hosts.pb`, and reconnecting via mDNS, then the last address, then a port scan.
-- **Force landscape** (`rotation.py`): saves the phone's rotation settings to `rotation.json`, locks to landscape with `cmd window user-rotation`, and restores afterwards. One worker thread runs these changes, so they never race.
+- **Temporary phone settings** (`phone_state.py`): Force landscape (`cmd window user-rotation`) and content size (`wm density`). The phone's own value is saved to `rotation.json` / `density.json` before the first change and restored afterwards, including on the next connect if the phone was unreachable. One worker thread per setting, so changes and restores never race.
+- **Sidebar** (`sidebar.py`, Tk): one process per mirror window. On Windows it docks to the scrcpy window: it's owned by that window, follows its DWM frame bounds every 30 ms, and uses `WS_EX_NOACTIVATE` so clicks don't steal the keyboard. Buttons write to a long-lived `adb shell`.
+- **Control channel** (`control.py`): the tray is the only process that changes phone settings and `config.json`. Sidebars and `scrcpy-autolaunch mirror` reach it over 127.0.0.1 with a random token (passed to sidebars in their environment, and written to a user-only file for the CLI).
+- **Themed scrcpy title bar:** the watcher finds the scrcpy window and sets `DWMWA_USE_IMMERSIVE_DARK_MODE` on it.
 - **Start at login and app menu entries** (`autostart.py`): a Startup folder shortcut (Windows), a LaunchAgent (macOS), and XDG autostart and `.desktop` files (Linux).
 - **One instance only** (`instance.py`): an OS file lock. The log rotates at 1 MB.
 

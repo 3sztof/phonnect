@@ -75,6 +75,15 @@ def parse_devices(text: str) -> list[Device]:
     return devices
 
 
+def parse_wm_density(text: str) -> dict | None:
+    """`wm density` output -> {"physical": 360, "override": 400 or None}."""
+    physical = re.search(r"Physical density:\s*(\d+)", text)
+    if not physical:
+        return None
+    override = re.search(r"Override density:\s*(\d+)", text)
+    return {"physical": int(physical.group(1)), "override": int(override.group(1)) if override else None}
+
+
 def parse_mdns(text: str) -> list[MdnsService]:
     services = []
     for line in text.splitlines():
@@ -161,6 +170,22 @@ class Adb:
 
     def wifi_debugging_enabled(self, serial: str) -> bool | None:
         return self._global_flag(serial, "adb_wifi_enabled")
+
+    # ── display density ──────────────────────────────────────────────────────
+
+    def density_state(self, serial: str) -> dict | None:
+        try:
+            return parse_wm_density(self.run("-s", serial, "shell", "wm", "density", timeout=10).stdout)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+
+    def apply_density(self, serial: str, state: dict) -> bool:
+        value = state.get("override")
+        args = ["wm", "density", str(int(value))] if value else ["wm", "density", "reset"]
+        try:
+            return self.run("-s", serial, "shell", *args, timeout=10).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
 
     # ── screen rotation ──────────────────────────────────────────────────────
 

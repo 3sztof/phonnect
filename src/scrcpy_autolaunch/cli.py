@@ -43,6 +43,25 @@ def require_adb(cfg: Config) -> Adb:
     return Adb(adb)
 
 
+def attach_helpers(watcher):
+    """Give a watcher what the tray and `run` both need: setting keepers, the
+    control server for sidebars, and themed scrcpy title bars."""
+    from scrcpy_autolaunch.control import ControlServer
+    from scrcpy_autolaunch.phone_state import DensityKeeper, RotationKeeper
+
+    watcher.rotation = RotationKeeper(watcher.adb, watcher.online_serial)
+    watcher.density = DensityKeeper(watcher.adb, watcher.online_serial)
+    try:
+        server = ControlServer(watcher.handle_control).start()
+        watcher.control = (server.address, server.token)
+        from scrcpy_autolaunch.control import write_endpoint
+
+        write_endpoint(server.address, server.token)
+    except OSError as exc:
+        log.warning("Sidebars are unavailable (could not open a local port): %s", exc)
+    watcher.style_windows = True
+
+
 def legacy_startup_entry() -> Path | None:
     """The PowerShell/VBS version from the legacy-windows branch, if installed."""
     if not IS_WINDOWS:
@@ -66,16 +85,21 @@ def cmd_run(args) -> int:
         if problem:
             log.error(problem)
             return 1
-        from scrcpy_autolaunch.rotation import RotationKeeper
         from scrcpy_autolaunch.watcher import Watcher
 
         watcher = Watcher(cfg, Adb(adb), scrcpy, version)
-        watcher.rotation = RotationKeeper(watcher.adb, watcher.online_serial)
+        attach_helpers(watcher)
+        watcher.on_quit = watcher.stop
         try:
             watcher.run_forever()
+            watcher.restore_all_phone_settings()
         except KeyboardInterrupt:
             watcher.stop()
-            watcher.restore_all_rotation()
+            watcher.restore_all_phone_settings()
+        finally:
+            from scrcpy_autolaunch.control import remove_endpoint
+
+            remove_endpoint()
     return 0
 
 
@@ -122,6 +146,20 @@ def cmd_stop(args) -> int:
     if pid is None:
         print("Not running.")
         return 0
+    # Ask the app to quit, so it can put back what it changed on the phones first.
+    from scrcpy_autolaunch import control
+
+    endpoint = control.read_endpoint()
+    if endpoint is not None:
+        try:
+            if control.request(*endpoint, {"cmd": "quit"}, timeout=3).get("ok"):
+                for _ in range(100):
+                    if running_pid() is None:
+                        print(f"Stopped (pid {pid}). Open scrcpy windows stay open.")
+                        return 0
+                    time.sleep(0.1)
+        except OSError:
+            pass
     if pid < 0:
         print(f"Running, but the PID is unknown. Delete {paths.lock_file()} after ending the process manually.")
         return 1
@@ -328,6 +366,33 @@ def cmd_dialog(args) -> int:
     return _dialog(require_adb(Config.load()), args.kind, args.message)
 
 
+def cmd_mirror(args) -> int:
+    """Ask the running tray app to open a mirror window."""
+    from scrcpy_autolaunch import control
+
+    endpoint = control.read_endpoint()
+    if endpoint is None or running_pid() is None:
+        print("scrcpy-autolaunch isn't running. Start it with: scrcpy-autolaunch start")
+        return 1
+    try:
+        reply = control.request(*endpoint, {"cmd": "mirror", "phone": args.phone})
+    except OSError as exc:
+        print(f"Could not reach the running app: {exc}")
+        return 1
+    if not reply.get("ok"):
+        print(reply.get("error", "failed"))
+        return 1
+    print(reply.get("result") or f"started {reply.get('started', 0)} window(s)")
+    return 0
+
+
+def cmd_sidebar(args) -> int:
+    from scrcpy_autolaunch.sidebar import run_sidebar
+
+    adb = os.environ.get("ADB") or require_adb(Config.load()).path
+    return run_sidebar(adb, args.serial, args.hw, args.pid, args.name)
+
+
 def _dialog(adb: Adb, kind: str, message: str = "") -> int:
     from scrcpy_autolaunch.dialogs import run_dialog
 
@@ -366,6 +431,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--purge", action="store_true", help="also delete settings and logs"
     )
     add("devices", cmd_devices, "list devices known to adb")
+    add("mirror", cmd_mirror, "open a mirror window (asks the running app)").add_argument(
+        "phone", nargs="?", default="all", help="phone name, serial or 'all' (default)"
+    )
     sp = add("pair", cmd_pair, "pair a phone for wireless debugging (opens a dialog without arguments)")
     sp.add_argument("address", nargs="?", help="IP:PORT from 'Pair device with pairing code'")
     sp.add_argument("code", nargs="?", help="6-digit pairing code")
@@ -387,8 +455,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp = add("_dialog", cmd_dialog, argparse.SUPPRESS)
     sp.add_argument("kind", choices=["pair", "connect", "devices"])
     sp.add_argument("--message", default="")
-    # Hide the internal command from --help.
-    sub._choices_actions = [a for a in sub._choices_actions if a.dest != "_dialog"]
+    sp = add("_sidebar", cmd_sidebar, argparse.SUPPRESS)
+    sp.add_argument("--serial", required=True)
+    sp.add_argument("--hw", required=True)
+    sp.add_argument("--pid", type=int, required=True)
+    sp.add_argument("--name", default="Phone")
+    # Hide the internal commands from --help.
+    sub._choices_actions = [a for a in sub._choices_actions if not a.dest.startswith("_")]
     return p
 
 

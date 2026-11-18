@@ -25,6 +25,11 @@ class Config:
     # Closing a Wi-Fi mirror window also disconnects that phone's Wi-Fi debugging
     # connection, unless this is on.
     keep_wifi_connected: bool = False
+    # Phone content size while mirrored, in percent of the phone's own setting
+    # (100 = unchanged; lower fits more). Restored when the window closes.
+    content_scale: int = 100
+    # Button bar docked to the right of each mirror window.
+    show_sidebar: bool = True
     # "off":  --no-audio, sound stays on the phone only (default)
     # "both": play on the PC *and* keep playing on the phone (Android 13+; apps may opt out)
     # "pc":   move sound to the PC; the phone goes silent (also e.g. a Bluetooth amp)

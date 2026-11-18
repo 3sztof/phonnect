@@ -21,7 +21,7 @@ from typing import Callable
 
 from scrcpy_autolaunch.adb import EMULATOR, USB, WIRELESS, Adb, Device
 from scrcpy_autolaunch.config import Config
-from scrcpy_autolaunch.osutil import NO_WINDOW
+from scrcpy_autolaunch.osutil import NO_WINDOW, gui_python, open_terminal
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ class Session:
     hw_id: str
     proc: subprocess.Popen
     started: float
+    sidebar: subprocess.Popen | None = None
 
 
 class Watcher:
@@ -61,7 +62,11 @@ class Watcher:
         self.scrcpy = scrcpy
         self.scrcpy_version = scrcpy_version
         self.known = known  # wireless.KnownDevices, optional
-        self.rotation = None  # rotation.RotationKeeper, optional (set by the tray)
+        self.rotation = None  # phone_state.RotationKeeper, optional (set by the tray)
+        self.density = None  # phone_state.DensityKeeper, optional (set by the tray)
+        self.control: tuple[str, str] | None = None  # (address, token) of the control server
+        self.style_windows = False  # match scrcpy's title bar to the OS theme (set by the tray)
+        self.on_quit: Callable[[], None] | None = None  # how a "quit" control request ends the app
         self._on_change = on_change or (lambda: None)
         self._notify = notify or (lambda msg: None)
         self._popen = popen
@@ -138,9 +143,9 @@ class Watcher:
                     self._user_closed.discard(hw)  # plugging in is a fresh request
                 if self._auto_enabled(dev) and not (dev.transport == WIRELESS and hw in self._user_closed):
                     self._launch(dev)
-                if self.rotation is not None and hw not in self.sessions and self.rotation.has_saved(hw):
-                    # Left in landscape by a session that ended while the phone was unreachable.
-                    self.rotation.restore(hw)
+                if hw not in self.sessions and any(k.has_saved(hw) for k in self._keepers()):
+                    # Left changed by a session that ended while the phone was unreachable.
+                    self._restore_phone_settings(hw)
                 if self.known is not None:
                     threading.Thread(
                         target=self._learn, args=(dev, self.hw_ids[dev.serial]), name="learn", daemon=True
@@ -201,8 +206,8 @@ class Watcher:
             return False
         log.info("Stopping scrcpy for %s (requested from the tray)", s.device.label)
         s.proc.terminate()
-        if self.rotation is not None:
-            self.rotation.restore(hw_id)
+        self._close_sidebar(s)
+        self._restore_phone_settings(hw_id)
         self._closed_by_user(s)
         self._on_change()
         return True
@@ -216,6 +221,9 @@ class Watcher:
             ).start()
 
     def _disconnect_quietly(self, serial: str) -> None:
+        # Restores queued for this phone (rotation, density) need the connection: let them finish first.
+        for k in self._keepers():
+            k.flush()
         try:
             self.adb.disconnect(serial)
         except Exception as exc:
@@ -233,23 +241,89 @@ class Watcher:
         """Lock or restore rotation for open windows after the setting changed."""
         if self.rotation is None:
             return
-        with self._lock:
-            active = [hw for hw, s in self.sessions.items() if s.proc.poll() is None]
-        for hw in active:
+        for hw in self._active():
             if self.config.force_landscape:
                 self.rotation.lock_landscape(hw)
             else:
                 self.rotation.restore(hw)
 
-    def restore_all_rotation(self) -> None:
-        """On quit: put every phone we rotated back the way it was."""
-        if self.rotation is None:
-            return
+    def restore_all_phone_settings(self) -> None:
+        """On quit: put back everything we changed on any phone, and close sidebars."""
         with self._lock:
-            hws = list(self.sessions)
-        for hw in hws:
-            self.rotation.restore(hw)
-        self.rotation.flush()
+            sessions = list(self.sessions.values())
+        for s in sessions:
+            self._close_sidebar(s)
+            self._restore_phone_settings(s.hw_id)
+        for k in self._keepers():
+            k.flush()
+
+    def apply_content_scale(self) -> None:
+        """Apply the content-size setting to open windows."""
+        if self.density is None:
+            return
+        for hw in self._active():
+            self.density.set_scale(hw, self.config.content_scale)
+
+    def apply_sidebar_setting(self) -> None:
+        with self._lock:
+            for s in self.sessions.values():
+                if s.proc.poll() is not None:
+                    continue
+                if self.config.show_sidebar and (s.sidebar is None or s.sidebar.poll() is not None):
+                    self._spawn_sidebar(s)
+                elif not self.config.show_sidebar:
+                    self._close_sidebar(s)
+
+    def open_shell(self, hw_id: str) -> bool:
+        serial = self.online_serial(hw_id)
+        if serial is None:
+            return False
+        open_terminal([self.adb.path, "-s", serial, "shell"])
+        return True
+
+    def handle_control(self, msg: dict) -> dict:
+        """Requests from sidebar windows (see control.py)."""
+        from scrcpy_autolaunch.phone_state import MAX_SCALE, MIN_SCALE
+
+        cmd = msg.get("cmd")
+        if cmd == "state":
+            return {"ok": True, "force_landscape": self.config.force_landscape, "content_scale": self.config.content_scale}
+        if cmd == "set_landscape":
+            self.config.force_landscape = bool(msg.get("on"))
+            self.config.save()
+            log.info("Setting force_landscape = %s (from the sidebar)", self.config.force_landscape)
+            self.apply_landscape_setting()
+            self._on_change()
+            return {"ok": True}
+        if cmd == "set_scale":
+            try:
+                value = int(msg.get("value", MAX_SCALE))
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "value must be a number"}
+            self.config.content_scale = max(MIN_SCALE, min(MAX_SCALE, value))
+            self.config.save()
+            log.info("Setting content_scale = %s%% (from the sidebar)", self.config.content_scale)
+            self.apply_content_scale()
+            return {"ok": True, "content_scale": self.config.content_scale}
+        if cmd == "mirror":
+            target = str(msg.get("phone", "all")).lower()
+            if target == "all":
+                return {"ok": True, "started": self.mirror_now()}
+            for hw, devs, _ in self.phones():
+                names = {hw.lower(), *(d.serial.lower() for d in devs), *(d.model.replace("_", " ").lower() for d in devs)}
+                if target in names:
+                    return {"ok": True, "result": self.mirror(hw)}
+            return {"ok": False, "error": f"no connected phone matches {target!r}"}
+        if cmd == "quit":
+            if self.on_quit is None:
+                return {"ok": False, "error": "quit is not supported here"}
+            threading.Thread(target=self.on_quit, name="quit", daemon=True).start()
+            return {"ok": True}
+        if cmd == "log":
+            level = msg.get("level") if msg.get("level") in ("info", "warning", "error") else "info"
+            getattr(log, level)("sidebar: %s", str(msg.get("message", ""))[:2000])
+            return {"ok": True}
+        return {"ok": False, "error": f"unknown command {cmd!r}"}
 
     def snapshot(self) -> list[tuple[Device, bool]]:
         """Connected devices and whether each phone is currently being mirrored."""
@@ -261,6 +335,69 @@ class Watcher:
             ]
 
     # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _active(self) -> list[str]:
+        with self._lock:
+            return [hw for hw, s in self.sessions.items() if s.proc.poll() is None]
+
+    def _keepers(self) -> list:
+        return [k for k in (self.rotation, self.density) if k is not None]
+
+    def _apply_phone_settings(self, hw: str) -> None:
+        if self.config.force_landscape and self.rotation is not None:
+            self.rotation.lock_landscape(hw)
+        if self.config.content_scale < 100 and self.density is not None:
+            self.density.set_scale(hw, self.config.content_scale)
+
+    def _restore_phone_settings(self, hw: str) -> None:
+        for k in self._keepers():
+            k.restore(hw)
+
+    def _spawn_sidebar(self, s: Session) -> None:
+        if not (self.config.show_sidebar and self.control):
+            return
+        address, token = self.control
+        cmd = [
+            gui_python(), "-m", "scrcpy_autolaunch", "_sidebar",
+            "--serial", s.device.serial,
+            "--hw", s.hw_id,
+            "--pid", str(s.proc.pid),
+            "--name", s.device.label.rsplit(" (", 1)[0],
+        ]  # fmt: skip
+        # The token goes in the environment, not on the command line other users could read.
+        child_env = dict(os.environ)
+        child_env["SCRCPY_AUTOLAUNCH_CONTROL"] = f"{address} {token}"
+        child_env["SCRCPY_AUTOLAUNCH_APP_PID"] = str(os.getpid())  # the sidebar exits with the app
+        child_env["ADB"] = self.adb.path
+        try:
+            s.sidebar = subprocess.Popen(
+                cmd,
+                env=child_env,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=NO_WINDOW,
+            )
+        except OSError as exc:
+            log.warning("Could not open the sidebar: %s", exc)
+
+    @staticmethod
+    def _close_sidebar(s: Session) -> None:
+        if s.sidebar is not None and s.sidebar.poll() is None:
+            s.sidebar.terminate()
+
+    @staticmethod
+    def _style_window(pid: int) -> None:
+        """Match the scrcpy window's title bar to the OS light/dark mode (Windows)."""
+        from scrcpy_autolaunch import theme
+        from scrcpy_autolaunch.osutil import find_process_window
+
+        for _ in range(50):  # the window appears a moment after the process starts
+            hwnd = find_process_window(pid)
+            if hwnd:
+                theme.title_bar_hwnd(hwnd)
+                return
+            time.sleep(0.2)
 
     def _auto_enabled(self, dev: Device) -> bool:
         if dev.transport == USB:
@@ -305,6 +442,7 @@ class Watcher:
             for hw, s in active:
                 del self.sessions[hw]  # not reaped: no "failed" notification for this exit
                 s.proc.terminate()
+                self._close_sidebar(s)
             for hw, s in active:
                 try:
                     s.proc.wait(timeout=5)
@@ -345,10 +483,13 @@ class Watcher:
             self._notify(f"Could not start scrcpy: {exc}")
             return False
 
-        self.sessions[hw] = Session(device=dev, hw_id=hw, proc=proc, started=self._clock())
+        session = Session(device=dev, hw_id=hw, proc=proc, started=self._clock())
+        self.sessions[hw] = session
         log.info("scrcpy started for %s (pid %s): %s", dev.label, proc.pid, " ".join(args[1:]))
-        if self.config.force_landscape and self.rotation is not None:
-            self.rotation.lock_landscape(hw)
+        self._apply_phone_settings(hw)
+        self._spawn_sidebar(session)
+        if self.style_windows:
+            threading.Thread(target=self._style_window, args=(proc.pid,), name="style", daemon=True).start()
         if proc.stdout is not None:
             threading.Thread(
                 target=self._pump_output, args=(proc, dev.serial), name="scrcpy-output", daemon=True
@@ -364,8 +505,8 @@ class Watcher:
             del self.sessions[hw]
             changed = True
             log.info("scrcpy exited for %s (code %s)", s.device.label, code)
-            if self.rotation is not None:
-                self.rotation.restore(hw)
+            self._close_sidebar(s)
+            self._restore_phone_settings(hw)
             if code == 0:  # the user closed the window
                 self._closed_by_user(s)
             if code != 0 and self._clock() - s.started < QUICK_FAIL_SECONDS:

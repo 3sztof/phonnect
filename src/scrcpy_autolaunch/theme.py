@@ -68,16 +68,29 @@ def title_bar(window, dark: bool | None = None) -> None:
     """Windows 10 20H1+/11: dark or light title bar for a Tk window (no-op elsewhere)."""
     if not IS_WINDOWS:
         return
+    try:
+        window.update_idletasks()
+        title_bar_hwnd(ctypes.windll.user32.GetParent(window.winfo_id()), dark)
+    except Exception:
+        log.debug("Could not set the title bar colour", exc_info=True)
+
+
+def title_bar_hwnd(hwnd: int, dark: bool | None = None) -> None:
+    """Same for any window handle, e.g. scrcpy's window (it stays light otherwise)."""
+    if not IS_WINDOWS or not hwnd:
+        return
     if dark is None:
         dark = is_dark()
     try:
-        window.update_idletasks()
-        hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
         value = ctypes.c_int(1 if dark else 0)
         # DWMWA_USE_IMMERSIVE_DARK_MODE is 20; Windows 10 builds before 20H1 used 19.
         for attribute in (20, 19):
             if ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(value), ctypes.sizeof(value)) == 0:
                 break
+        # Repaint the frame now rather than at the next focus change.
+        SWP_NOSIZE, SWP_NOMOVE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_FRAMECHANGED = 0x1, 0x2, 0x4, 0x10, 0x20
+        flags = SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+        ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, flags)
     except Exception:
         log.debug("Could not set the title bar colour", exc_info=True)
 

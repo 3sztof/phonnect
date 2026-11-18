@@ -38,7 +38,7 @@ If scrcpy-autolaunch saves you a few clicks every day, you can support its devel
 ## The tray menu
 
 ```
-Pixel 9 Pro: mirroring (USB)        >  Show window / Stop mirroring / Disconnect Wi-Fi
+Pixel 9 Pro: mirroring (USB)        >  Show window / Stop mirroring / Open shell / Disconnect Wi-Fi
 Connect and mirror Pixel 7 (Wi-Fi)
 ---
 Audio                               >  Off / PC and phone / PC only
@@ -56,6 +56,7 @@ Your phones come first: **click a phone to see it.** The app connects over Wi-Fi
 | **Audio** | Off by default, so sound stays on the phone, including Bluetooth speakers or amps. You can also play it on the PC, alongside the phone or instead of it |
 | **Force landscape** | Rotates the phone while it's mirrored, and puts it back afterwards |
 | **Hide phone keyboard** | You type on the PC, and the phone's on-screen keyboard stays out of the way |
+| **Sidebar** | A button bar glued to the mirror window: back, home, recent apps, notifications, volume, power, screenshot, an adb shell, and a slider to fit more on the screen |
 
 More in [docs/usage.md](docs/usage.md).
 

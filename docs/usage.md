@@ -5,7 +5,7 @@
 On Windows, left- or right-click the icon. On macOS and most Linux desktops, click it.
 
 ```
-Pixel 9 Pro: mirroring (USB)          >  Show window / Stop mirroring / Disconnect Wi-Fi
+Pixel 9 Pro: mirroring (USB)          >  Show window / Stop mirroring / Open shell / Disconnect Wi-Fi
 Mirror Galaxy S24 (Wi-Fi)                 connected but no window yet: one click
 Connect and mirror Pixel 7 (Wi-Fi)        paired or seen before: connects, then mirrors
 Pixel 6: allow USB debugging on the phone needs your attention
@@ -13,7 +13,7 @@ Pixel 6: allow USB debugging on the phone needs your attention
 Audio                                 >  Off / PC and phone / PC only
 Force landscape
 Wi-Fi                                 >  Pair new phone… / Connect to address… / Manage Wi-Fi phones… / Disconnect all
-Settings                              >  Auto-launch on USB / on Wi-Fi, Keep Wi-Fi connected, Hide phone keyboard, Start at login, Open log, Open settings folder
+Settings                              >  Auto-launch on USB / on Wi-Fi, Keep Wi-Fi connected, Show sidebar, Hide phone keyboard, Start at login, Open log, Open settings folder
 ---
 Quit
 ```
@@ -21,8 +21,29 @@ Quit
 - **Clicking a phone means "show me this phone".** It connects over Wi-Fi if needed and opens the window, whatever the auto-launch settings are. Auto-launch only decides what happens without a click.
 - A phone on both USB and Wi-Fi is one entry, mirrored over USB.
 - **Show window** (Windows) brings a mirror window hidden behind others to the front.
+- **Open shell** opens `adb shell` for that phone in your terminal app (on Windows, your default terminal, e.g. Windows Terminal).
 - The icon is green when a phone is connected, grey while it waits, and red if scrcpy or adb wasn't found. Hover over it for a status summary.
-- **Quit** stops watching for phones. Open mirror windows stay open.
+- **Quit** stops watching for phones. Open mirror windows stay open, but the sidebars close and every phone setting the app changed (rotation, content size) is put back.
+
+## The sidebar
+
+A slim button bar next to each mirror window (on by default; **Settings → Show sidebar next to the window**):
+
+| Button | |
+|---|---|
+| Back, Home, Recent apps | The phone's navigation buttons |
+| Notifications, Quick settings | Pull down the notification shade or the quick-settings panel |
+| Volume up / down, Power | The phone's side buttons. Power turns the phone screen off and on; the mirror keeps working |
+| Screenshot | Saves a PNG to `Pictures\scrcpy-autolaunch`. Right-click it to open that folder |
+| Force landscape | Same as the tray setting (see below) |
+| Shell | Opens `adb shell` for the phone in your terminal app |
+| Content size slider | Drag down to fit more on the screen (see below) |
+
+Hover over a button for its name. On **Windows** the bar is glued to the window's right edge (or left edge, if there's no room on the right): it follows when you move, resize or minimize the window, and clicking it doesn't take the keyboard away from the mirror. On **macOS and Linux** it's a small floating window instead, because apps can't follow other windows reliably there.
+
+Buttons go to the phone through one `adb shell` that stays open, so presses are instant. scrcpy's own shortcuts work as well (Alt+B back, Alt+H home, Alt+S recent apps, Alt+N notifications, Alt+P power).
+
+The mirror window's title bar follows Windows' light/dark mode, like the rest of the app.
 
 ## When the window opens by itself
 
@@ -55,6 +76,12 @@ Your rotation setting (auto-rotate, or locked to portrait) is saved first, and p
 
 To rotate just once without locking, press scrcpy's own **Alt+R** in the mirror window.
 
+### Content size
+
+The sidebar's slider makes everything on the phone smaller, so more fits on the screen and the mirror looks less "zoomed in" on a big monitor. 100% is your phone's own display-size setting; at 50%, twice as much fits. It's applied when you let go of the slider.
+
+Technically it's the phone's display density (`wm density`). Text and buttons get smaller **on the phone too** while you mirror, and apps briefly redraw when it changes. Your own setting is put back when the window closes, the phone disconnects, or you quit the app. If the phone was unplugged mid-session, it's put back as soon as it connects again. The last value you chose is remembered for the next window (`content_scale` in the config file).
+
 ### Hide phone keyboard while mirroring
 
 On by default. scrcpy acts as a physical keyboard, so Android hides the on-screen keyboard and you type on the PC. Nothing changes on the phone permanently: the on-screen keyboard comes back when the window closes.
@@ -80,6 +107,7 @@ See [scrcpy's shortcuts](https://github.com/Genymobile/scrcpy/blob/master/doc/sh
 | `doctor` | Check scrcpy, adb, tray support and connected phones, with hints |
 | `log [-n 30]` | Show the end of the log |
 | `devices` | List adb devices |
+| `mirror [PHONE]` | Ask the running app to open a mirror window (a phone name, serial, or all) |
 | `wifi` / `wifi --reconnect NAME\|ID\|all` | List paired and remembered phones, or reconnect to them |
 | `pair [IP:PORT CODE]` / `connect [IP:PORT]` | Wi-Fi pairing and connecting. Without arguments, a window opens |
 | `discover [--connect]` / `disconnect [IP:PORT]` | Show what mDNS sees, or disconnect Wi-Fi phones |
@@ -98,6 +126,8 @@ Settings changed in the tray are saved immediately. You can also edit the file d
   "hide_phone_keyboard": true,
   "force_landscape": false,
   "keep_wifi_connected": false,
+  "content_scale": 100,
+  "show_sidebar": true,
   "audio": "off",
   "scrcpy_args": ["--stay-awake"],
   "wireless_extra_args": ["--max-size=1600", "--video-bit-rate=6M"],

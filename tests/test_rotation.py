@@ -1,5 +1,5 @@
 from scrcpy_autolaunch.adb import LANDSCAPE
-from scrcpy_autolaunch.rotation import RotationKeeper
+from scrcpy_autolaunch.phone_state import RotationKeeper
 from test_watcher import USB_PHONE, Harness
 
 HW = USB_PHONE.serial

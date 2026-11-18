@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -43,10 +45,10 @@ def spawn_detached(cmd: list[str]) -> subprocess.Popen:
     return subprocess.Popen(cmd, **kwargs)
 
 
-def focus_process_window(pid: int) -> bool:
-    """Bring the visible top-level window of `pid` to the front (Windows only)."""
+def find_process_window(pid: int) -> int | None:
+    """Handle of the first visible top-level window of `pid` (Windows only)."""
     if not IS_WINDOWS:
-        return False
+        return None
     import ctypes
     from ctypes import wintypes
 
@@ -63,12 +65,66 @@ def focus_process_window(pid: int) -> bool:
         return True
 
     user32.EnumWindows(callback, 0)
-    if not found:
+    return found[0] if found else None
+
+
+def focus_process_window(pid: int) -> bool:
+    """Bring the visible top-level window of `pid` to the front (Windows only)."""
+    hwnd = find_process_window(pid)
+    if not hwnd:
         return False
+    import ctypes
+
     SW_RESTORE = 9
-    user32.ShowWindow(found[0], SW_RESTORE)
-    user32.SetForegroundWindow(found[0])
+    ctypes.windll.user32.ShowWindow(hwnd, SW_RESTORE)
+    ctypes.windll.user32.SetForegroundWindow(hwnd)
     return True
+
+
+# Linux terminals and how each one takes a command to run.
+LINUX_TERMINALS = (
+    ("x-terminal-emulator", ["-e"]),
+    ("gnome-terminal", ["--"]),
+    ("konsole", ["-e"]),
+    ("xfce4-terminal", ["-x"]),
+    ("kitty", []),
+    ("alacritty", ["-e"]),
+    ("wezterm", ["start", "--"]),
+    ("foot", []),
+    ("xterm", ["-e"]),
+)
+
+
+def linux_terminal_command(args: list[str], which=shutil.which, env=None) -> list[str] | None:
+    env = os.environ if env is None else env
+    preferred = env.get("TERMINAL")
+    if preferred and which(preferred):
+        return [preferred, "-e", *args]
+    for name, flag in LINUX_TERMINALS:
+        if which(name):
+            return [name, *flag, *args]
+    return None
+
+
+def open_terminal(args: list[str]) -> None:
+    """Run `args` in a new window of the OS's terminal app."""
+    if IS_WINDOWS:
+        # A new console goes to the user's default terminal app (Windows Terminal on Windows 11).
+        subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE, close_fds=True)
+    elif IS_MAC:
+        command = shlex.join(args).replace("\\", "\\\\").replace('"', '\\"')
+        spawn_detached(
+            [
+                "osascript",
+                "-e", f'tell application "Terminal" to do script "{command}"',
+                "-e", 'tell application "Terminal" to activate',
+            ]  # fmt: skip
+        )
+    else:
+        cmd = linux_terminal_command(args)
+        if cmd is None:
+            raise OSError("No terminal app found. Set the TERMINAL environment variable to your terminal's command.")
+        spawn_detached(cmd)
 
 
 def open_path(path: Path) -> None:
