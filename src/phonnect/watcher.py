@@ -234,6 +234,21 @@ class Watcher:
 
     def open_desktop_and_report(self, hw_id: str) -> str:
         """open_desktop() for callers that don't wait: problems become a notification."""
+        existing = self.desktops.get(hw_id)
+        already_open = (existing is not None and existing.poll() is None) or hw_id in self._desktop_opening
+        if already_open:
+            pass  # just brought to the front: no warning again
+        elif self.config.desktop_method == "overlay":
+            self._notify(
+                "Desktop mode is experimental, here be dragons. It uses a simulated second screen, so your "
+                "phone shows a preview while it's open. If the preview stays after you close the window: "
+                "Developer options > Simulate secondary displays > None (or restart the phone)."
+            )
+        else:
+            self._notify(
+                "Desktop mode is experimental: on current Pixels, apps may not open from its taskbar yet "
+                "(a problem between Android and scrcpy)."
+            )
         try:
             result = self.open_desktop(hw_id)
         except Exception as exc:
@@ -323,10 +338,6 @@ class Watcher:
             new = [d for d, s in now.items() if d not in before and s == size] or [d for d in now if d not in before]
             if new:
                 log.info("Simulated second screen for %s: display %s (%s)", serial, new[0], now[new[0]])
-                self._notify(
-                    "Desktop mode: while it's open, your phone shows a small preview of the desktop. "
-                    "That's normal, and it goes away when you close the desktop window."
-                )
                 return new[0]
             time.sleep(0.5)
         log.warning("The simulated second screen didn't appear on %s; using scrcpy's virtual display", serial)

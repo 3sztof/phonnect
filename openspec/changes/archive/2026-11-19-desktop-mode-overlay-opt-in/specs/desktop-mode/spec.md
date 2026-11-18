@@ -13,9 +13,13 @@ The app SHALL open the phone's desktop on a second screen of a configurable size
 - **WHEN** the user opens desktop mode without opting in to the simulated second screen
 - **THEN** no phone setting is changed, and nothing is shown on the phone's own screen
 
-#### Scenario: Launching an app with the opt-in
-- **WHEN** the user opted in and clicks an app in the desktop's taskbar on a Pixel with Android 16 or 17
+#### Scenario: Launching an app
+- **WHEN** the user opted in to the simulated second screen and clicks an app in the desktop's taskbar on a Pixel with Android 16 or 17
 - **THEN** the app opens in a window on the desktop
+
+#### Scenario: Warned before it opens
+- **WHEN** the user opens desktop mode
+- **THEN** a notification says it's experimental, and with the simulated second screen, how to remove its preview from the phone if it stays
 
 #### Scenario: Closed
 - **WHEN** the user closes a desktop window that used the simulated second screen
