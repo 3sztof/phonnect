@@ -1,55 +1,61 @@
-# justfile — scrcpy-autolaunch (legacy Windows-only version)
-# Requires: just (https://github.com/casey/just)
-#           scrcpy + adb: winget install Genymobile.scrcpy
-#
-# Run these from a clone of the repo, NOT from %USERPROFILE%\scrcpy-auto.
+# scrcpy-autolaunch: run `just` to list the recipes.
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
-
-INSTALL_DIR  := join(env_var('USERPROFILE'), 'scrcpy-auto')
-STARTUP_DIR  := join(env_var('APPDATA'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
-PS_SCRIPT    := join(INSTALL_DIR, 'scrcpy-auto.ps1')
-VBS_LAUNCHER := join(INSTALL_DIR, 'scrcpy-auto-launch.vbs')
-STARTUP_VBS  := join(STARTUP_DIR, 'scrcpy-auto-launch.vbs')
-LOG_FILE     := join(INSTALL_DIR, 'scrcpy-auto.log')
-SRC          := justfile_directory()
-
-FIND_WATCHER := "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'powershell.exe' -and $_.CommandLine -like '*scrcpy-auto.ps1*' }"
 
 _default:
     @just --list
 
-# Copy files to %USERPROFILE%\scrcpy-auto and register the Startup entry
-install: _guard
-    New-Item -ItemType Directory -Force -Path '{{INSTALL_DIR}}' | Out-Null
-    Copy-Item -Force '{{SRC}}\scrcpy-auto.ps1' '{{PS_SCRIPT}}'
-    Copy-Item -Force '{{SRC}}\scrcpy-auto-launch.vbs' '{{VBS_LAUNCHER}}'
-    Copy-Item -Force '{{SRC}}\README.md' '{{INSTALL_DIR}}\README.md'
-    Copy-Item -Force '{{VBS_LAUNCHER}}' '{{STARTUP_VBS}}'
-    @Write-Host "Installed. Run 'just start' to launch now without logging out."
+# Install uv if needed (asks first), the app and its dependencies; enable start at login; start the tray
+[windows]
+install:
+    powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "{{justfile_directory()}}\scripts\install.ps1" -Source "{{justfile_directory()}}"
 
-# Stop the watcher, remove the Startup entry and the install folder
-uninstall: _guard stop
-    Remove-Item -Force -ErrorAction SilentlyContinue '{{STARTUP_VBS}}'
-    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '{{INSTALL_DIR}}'
-    @Write-Host 'Uninstalled.'
+# Install uv if needed (asks first), the app and its dependencies; enable start at login; start the tray
+[unix]
+install:
+    sh "{{justfile_directory()}}/scripts/install.sh" "{{justfile_directory()}}"
 
-# Start the watcher now (hidden, via the VBS launcher)
+# Stop the app, remove start at login, settings, logs and the uv tool
+uninstall:
+    -just _app uninstall --purge
+    uv tool uninstall scrcpy-autolaunch
+
+# Start the tray app in the background
 start:
-    if ({{FIND_WATCHER}}) { Write-Host 'Watcher already running.' } else { & wscript.exe '{{VBS_LAUNCHER}}'; Write-Host 'Watcher started.' }
+    @just _app start
 
-# Stop the running watcher (an open scrcpy window stays open)
+# Stop the tray app (open scrcpy windows stay open)
 stop:
-    $w = {{FIND_WATCHER}}; if ($w) { $w | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Write-Host 'Watcher stopped.' } else { Write-Host 'No watcher running.' }
+    @just _app stop
 
-# Show whether the watcher is running
+# Show whether it's running, start-at-login state and file locations
 status:
-    $w = {{FIND_WATCHER}}; if ($w) { Write-Host ('Running, PID ' + ($w.ProcessId -join ', ')) } else { Write-Host 'Not running' }
+    @just _app status
 
-# Show the last 20 log lines
-log:
-    if (Test-Path '{{LOG_FILE}}') { Get-Content '{{LOG_FILE}}' -Tail 20 } else { Write-Host 'No log file yet.' }
+# Check scrcpy, adb, tray support and connected devices
+doctor:
+    @just _app doctor
 
-# Refuse to run install/uninstall from inside the install folder itself
-_guard:
-    if ((Resolve-Path '{{SRC}}').Path.TrimEnd('\') -ieq '{{INSTALL_DIR}}') { throw 'Run this from a clone of the repo, not from {{INSTALL_DIR}}.' }
+# Show the end of the log
+log lines="30":
+    @just _app log -n {{lines}}
+
+# Run the unit tests
+test:
+    uv run pytest -q
+
+# Run the tray from this checkout (foreground)
+dev-tray:
+    uv run scrcpy-autolaunch tray
+
+# Run the console watcher from this checkout (foreground, Ctrl+C to stop)
+dev-run:
+    uv run scrcpy-autolaunch run
+
+[windows]
+_app *args:
+    @& (Join-Path (uv tool dir --bin).Trim() 'scrcpy-autolaunch.exe') {{args}}
+
+[unix]
+_app *args:
+    @"$(uv tool dir --bin)/scrcpy-autolaunch" {{args}}

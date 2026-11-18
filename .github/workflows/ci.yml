@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.10", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Unit tests
+        run: uv run pytest -q
+      - name: CLI smoke test
+        run: |
+          uv run scrcpy-autolaunch --help
+          uv run scrcpy-autolaunch status || true
+      - name: Tool install from source
+        run: |
+          uv tool install .
+          uv tool list
