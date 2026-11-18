@@ -84,7 +84,7 @@ scrcpy-autolaunch install
 2. *Settings → System → Developer options*: turn on **USB debugging**.
 3. Plug the phone in and tap **Always allow from this computer**.
 
-That's it: the mirror window opens. For Wi-Fi, see [docs/wifi.md](docs/wifi.md).
+That's it: the mirror window opens. **New to this?** Follow the [step-by-step phone setup guide](docs/phone-setup.md). It covers other phone brands, what each prompt means, Wi-Fi, and how to turn it all off again.
 
 ## Platforms
 
@@ -95,6 +95,7 @@ That's it: the mirror window opens. For Wi-Fi, see [docs/wifi.md](docs/wifi.md).
 
 ## Documentation
 
+- [Phone setup](docs/phone-setup.md): a step-by-step guide for first-timers, covering USB, Wi-Fi and how to turn it off again
 - [Installation](docs/installation.md): requirements, release and clone installs, upgrading, uninstalling, migrating from the legacy version
 - [Usage](docs/usage.md): tray menu, settings, commands, config file, file locations
 - [Wi-Fi](docs/wifi.md): pairing, connecting, how reconnecting works
