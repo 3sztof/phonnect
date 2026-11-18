@@ -235,7 +235,7 @@ def cmd_doctor(args) -> int:
 
     if (legacy := legacy_startup_entry()) is not None:
         print(f"warning: the old PowerShell watcher is still set to start at login: {legacy}")
-        print("  It would open a second scrcpy window. Remove it (see README, 'Migrating from legacy').")
+        print("  It would open a second scrcpy window. Remove it: see docs/installation.md, migrating.")
     return 0 if ok else 1
 
 
@@ -281,7 +281,7 @@ def cmd_install(args) -> int:
     menu = autostart.add_menu_entry()
     print(f"App menu entry: {menu}")
     if (legacy := legacy_startup_entry()) is not None:
-        print(f"warning: old PowerShell watcher found in Startup: {legacy} (see README, 'Migrating from legacy')")
+        print(f"warning: old PowerShell watcher found in Startup: {legacy} (see docs/installation.md, migrating)")
     if shutil.which("scrcpy-autolaunch"):
         print(
             "Note: the old scrcpy-autolaunch command is still installed. "

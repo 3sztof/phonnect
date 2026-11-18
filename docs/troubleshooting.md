@@ -34,7 +34,7 @@ Separately, Android 15+ can hide notification contents and one-time codes during
 
 ## Two mirror windows open
 
-Another tool is mirroring too, for example QtScrcpy, or the legacy PowerShell watcher (see [installation.md](installation.md#migrating-from-the-legacy-version)). Run only one, or turn off **Auto-launch on USB** while you use the other.
+Another tool is mirroring too, for example QtScrcpy, or the legacy PowerShell watcher (see [installation.md](installation.md#migrating-from-older-versions)). Run only one, or turn off **Auto-launch on USB** while you use the other.
 
 If tools with different adb versions keep disconnecting the phone, point them at the same adb (`adb_path` in [usage.md](usage.md#config-file)).
 
