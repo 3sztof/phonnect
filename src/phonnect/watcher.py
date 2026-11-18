@@ -268,7 +268,7 @@ class Watcher:
             self._desktop_opening.add(hw_id)
         try:
             display_id = None
-            if self.config.desktop_method != "virtual" and self.overlay is not None:
+            if self.config.desktop_method == "overlay" and self.overlay is not None:
                 display_id = self._show_overlay_display(hw_id, serial)
             args = self.build_desktop_args(dev, display_id)
             child_env = dict(os.environ)

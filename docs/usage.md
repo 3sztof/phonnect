@@ -95,12 +95,9 @@ To rotate just once without locking, press scrcpy's own **Alt+R** in the mirror 
 
 Opens Android's desktop experience in its own window, like plugging the phone into a monitor: a taskbar, an app drawer, and apps in resizable windows. It runs on a second screen, so the mirror window keeps showing the phone's own screen. Close the window to end it.
 
-**How the second screen is made.** On current Pixels (Android 16 and 17), the desktop's taskbar can't open apps on scrcpy's own virtual screens ([scrcpy #6699](https://github.com/Genymobile/scrcpy/issues/6699), [#7048](https://github.com/Genymobile/scrcpy/issues/7048)). So Phonnect turns on Android's **simulated second screen** (*Developer options → Simulate secondary displays*) while the desktop window is open, which works. While it's on:
+**Known problem on current Pixels (Android 16 and 17):** the desktop and its taskbar show, but clicking an app does nothing. It's a problem between Android and scrcpy's virtual screens ([scrcpy #6699](https://github.com/Genymobile/scrcpy/issues/6699), [#7048](https://github.com/Genymobile/scrcpy/issues/7048)); a fix for scrcpy is proposed ([#7055](https://github.com/Genymobile/scrcpy/pull/7055)). Apps opened another way (a notification, a shortcut) do show up. Phonnect will use scrcpy's fix once it's released.
 
-- **the phone shows a small, semi-transparent preview of the desktop.** That's how Android shows a simulated screen; it can't be hidden. You can't use it, but it does no harm.
-- the phone may not accept your PIN until the desktop window is closed.
-
-Phonnect saves the setting first and removes the simulated screen when the desktop window closes, when you quit, or (if the phone was gone at that moment) the next time it connects. If the simulated screen doesn't appear, Phonnect falls back to scrcpy's virtual screen. Set `"desktop_method": "virtual"` in the config file to always use that: no preview on the phone, but on current Pixels apps can't be opened from the taskbar.
+**Experimental workaround, not recommended:** `"desktop_method": "overlay"` in the config file uses Android's *simulated second screen* (*Developer options → Simulate secondary displays*) instead, where apps do open. But on a Pixel 9 Pro (Android 17) it froze after about 20 seconds and Android restarted itself, and while it's on the phone shows a semi-transparent preview of the desktop that can't be hidden and may block PIN entry. Phonnect removes the simulated screen when the desktop window closes, on quit, or when the phone reconnects. If it's ever left behind, *Developer options → Simulate secondary displays → None* removes it.
 
 - Needs scrcpy 3.0+, and on Pixels *Developer options → Enable desktop experience features* (then restart the phone). Without it you get the phone's launcher on the second screen instead of a desktop.
 - Size and density come from `desktop_display` in the config file (default `1920x1080/160`; a higher number means larger text and icons, e.g. `1920x1080/240`).
@@ -180,7 +177,7 @@ Settings changed in the tray are saved immediately. You can also edit the file d
   "check_updates": true,
   "wifi_port_scan": true,
   "desktop_display": "1920x1080/160",
-  "desktop_method": "overlay",
+  "desktop_method": "virtual",
   "mouse_buttons": {"right": "app", "middle": "home", "back": "back", "forward": "recents"},
   "audio": "off",
   "scrcpy_args": ["--stay-awake"],

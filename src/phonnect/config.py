@@ -39,10 +39,10 @@ class Config:
     wifi_port_scan: bool = True
     # Desktop mode: size/density of the second, PC-sized screen (WIDTHxHEIGHT/DPI).
     desktop_display: str = "1920x1080/160"
-    # How desktop mode makes its second screen: "overlay" (a simulated second screen; Android's
-    # desktop can open apps there) or "virtual" (scrcpy's own; on current Pixels the taskbar
-    # shows but can't open apps). "overlay" falls back to "virtual" if it doesn't work.
-    desktop_method: str = "overlay"
+    # How desktop mode makes its second screen: "virtual" (scrcpy's own; safe, but on current
+    # Pixels the taskbar shows and can't open apps) or "overlay" (experimental: Android's simulated
+    # second screen, where apps open, but it froze and restarted Android on a Pixel 9 Pro).
+    desktop_method: str = "virtual"
     # What each secondary mouse button does in mirror windows:
     # "app" (send the click to the app), "back", "home", "recents", "notifications" or "nothing".
     # Holding Shift always gives Back / Home / Recent apps / Notifications.

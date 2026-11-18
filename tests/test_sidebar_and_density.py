@@ -248,6 +248,7 @@ def _overlay_harness(appears=True):
     from phonnect.phone_state import OverlayDisplayKeeper
 
     h = Harness(auto_usb=False)
+    h.watcher.config.desktop_method = "overlay"  # opt-in (experimental)
     fake = FakeOverlayAdb(appears)
     h.watcher.overlay = OverlayDisplayKeeper(fake, h.watcher.online_serial, threaded=False)
     h.watcher._display_ids = lambda serial: fake.displays()
@@ -272,3 +273,11 @@ def test_desktop_mode_falls_back_to_scrcpys_virtual_display(home):
     assert h.watcher.open_desktop(HW) == "started"
     assert "--new-display=1920x1080/160" in h.procs[-1].args
     assert fake.settings == {}, "nothing left changed on the phone"
+
+
+def test_simulated_second_screen_is_off_by_default(home):
+    h, fake = _overlay_harness()
+    h.watcher.config.desktop_method = "virtual"
+    assert h.watcher.open_desktop(HW) == "started"
+    assert "--new-display=1920x1080/160" in h.procs[-1].args
+    assert fake.settings == {}, "the phone isn't touched"
