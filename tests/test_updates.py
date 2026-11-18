@@ -50,8 +50,15 @@ def test_updater_runs_that_releases_installer_in_update_mode():
     cmd = " ".join(updates.updater_command("1.2.3"))
     if IS_WINDOWS:
         assert "releases/download/v1.2.3/install.ps1" in cmd and "PHONNECT_UPDATE = '1'" in cmd
+        assert "PHONNECT_YES" not in cmd
     else:
         assert "releases/download/v1.2.3/install.sh" in cmd and "--update --version 1.2.3" in cmd
+        assert "--yes" not in cmd
+
+
+def test_one_click_update_doesnt_ask_again():
+    cmd = " ".join(updates.updater_command("1.2.3", confirm=False))
+    assert ("PHONNECT_YES = '1'" in cmd) if IS_WINDOWS else ("--yes" in cmd)
 
 
 def test_scrcpy_hint_matches_how_it_was_installed():

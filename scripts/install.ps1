@@ -195,6 +195,7 @@ function Install-Phonnect {
         Write-Host ""
         Warn "$(Short $bin) is not on your PATH yet, so 'phonnect' isn't found in this window. Open a new terminal, or run: uv tool update-shell"
     }
+    $env:PHONNECT_RESULT = "ok"  # read by the update window started from the tray
 }
 
 try {

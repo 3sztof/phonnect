@@ -51,9 +51,9 @@ Force landscape
 Wi-Fi                         >  Pair new phone (QR code or code)… · Connect to address… · Manage Wi-Fi phones… ·
                                  Disconnect all
 Settings                      >  Auto-launch on USB / Wi-Fi · Keep Wi-Fi connected · Port scan · Show sidebar ·
-                                 Hide phone keyboard · Mouse buttons · Start at login · Check for updates ·
+                                 Hide phone keyboard · Mouse buttons · Start at login · Check for updates automatically ·
                                  Open log / settings
-Update Phonnect to X.Y.Z…        only when there's a new release
+Check for updates                becomes "Update Phonnect to X.Y.Z" (one click) when there's a new release
 ───────────
 Quit
 ```
@@ -86,7 +86,7 @@ irm https://github.com/3sztof/phonnect/releases/latest/download/install.ps1 | ie
 
 The installer walks you through it. First it shows what it will install and where (the app, its commands, start at login, a Start menu / Spotlight / app launcher entry), and what's already there. Nothing happens until you say yes. It asks separately before installing [uv](https://docs.astral.sh/uv/) (which installs Phonnect and the Python it needs), and **scrcpy + adb** with your package manager (winget, Homebrew, apt, pacman, …). Everything goes into your user account, and nothing on your phone is changed.
 
-**Updating:** **Update Phonnect** appears in the tray menu when there's a new release. Or run `phonnect update`.
+**Updating:** when there's a new release, **Check for updates** in the tray menu becomes **Update Phonnect to X.Y.Z**. One click does it. Or run `phonnect update`.
 
 **Uninstalling:** the same way, with `uninstall.sh` / `uninstall.ps1` in place of `install`. It asks whether to keep your settings, and leaves uv, scrcpy and adb in place.
 

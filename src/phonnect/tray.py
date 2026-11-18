@@ -266,10 +266,10 @@ class TrayApp:
             self.refresh()
 
     def _phonnect_update(self) -> str | None:
-        return updates.phonnect_update(self.releases) if self.config.check_updates else None
+        return updates.phonnect_update(self.releases)
 
     def _scrcpy_update(self) -> str | None:
-        if not self.config.check_updates or self.watcher is None:
+        if self.watcher is None:
             return None
         return updates.scrcpy_update(self.releases, self.watcher.scrcpy_version)
 
@@ -278,23 +278,24 @@ class TrayApp:
         if not version:
             return
         try:
-            updates.start_update(version)
+            updates.start_update(version, confirm=False)  # the click is the confirmation
         except OSError as exc:
             self.notify(f"Could not open a terminal for the update: {exc}")
-
-    def _show_scrcpy_update(self, *_):
-        path = self.watcher.scrcpy if self.watcher else None
-        self.notify(f"scrcpy {self._scrcpy_update()} is available. {updates.scrcpy_update_hint(path)}")
 
     def _check_updates_now(self, *_):
         def work():
             self._check_updates(force=True)
-            if version := self._phonnect_update():
-                self.notify(f"Phonnect {version} is available: choose 'Update Phonnect' in this menu.")
-            elif self.releases.phonnect is None:
+            if self.releases.phonnect is None:
                 self.notify("Could not reach GitHub to check for updates. See the log.")
+                return
+            if version := self._phonnect_update():
+                text = f"Phonnect {version} is available: click 'Update Phonnect to {version}' in the menu."
             else:
-                self.notify(f"Phonnect {__version__} is up to date.")
+                text = f"Phonnect {__version__} is up to date."
+            if scrcpy := self._scrcpy_update():
+                path = self.watcher.scrcpy if self.watcher else None
+                text += f"\nscrcpy {scrcpy} is available. {updates.scrcpy_update_hint(path)}"
+            self.notify(text)
 
         self._background(work)
 
@@ -366,11 +367,10 @@ class TrayApp:
                 Item("Mouse buttons", Menu(*self._mouse_items())),
                 Item("Start at login", self._toggle_autostart, checked=lambda _: autostart.is_enabled()),
                 Item(
-                    "Check for updates (once a day)",
+                    "Check for updates automatically",
                     self._toggle("check_updates"),
                     checked=lambda _: self.config.check_updates,
                 ),
-                Item("Check for updates now", self._check_updates_now),
                 Menu.SEPARATOR,
                 Item("Open log", lambda *_: self._open(paths.log_file())),
                 Item("Open settings folder", lambda *_: self._open(paths.config_dir())),
@@ -378,10 +378,11 @@ class TrayApp:
                 Item(f"Phonnect {__version__}", None, enabled=False),
             ),
         )
+        # One entry for updates: a one-click update when there is one, else a manual check.
         if version := self._phonnect_update():
-            yield Item(f"Update Phonnect to {version}…", self._update_phonnect)
-        if version := self._scrcpy_update():
-            yield Item(f"scrcpy {version} is available…", self._show_scrcpy_update)
+            yield Item(f"Update Phonnect to {version}", self._update_phonnect)
+        else:
+            yield Item("Check for updates", self._check_updates_now)
         yield Menu.SEPARATOR
         yield Item("Quit", self.quit)
 

@@ -130,25 +130,33 @@ def installer_url(version: str, script: str) -> str:
     return f"{RELEASES}/download/v{version}/{script}"
 
 
-def updater_command(version: str) -> list[str]:
-    """Runs the release's installer in update mode, then waits so the window stays readable."""
+def updater_command(version: str, confirm: bool = True) -> list[str]:
+    """Runs the release's installer in update mode.
+
+    confirm=False answers yes (the user already clicked Update). The window closes by itself
+    a few seconds after a successful update, and stays open after a failure so it can be read.
+    """
     if IS_WINDOWS:
+        yes = "" if confirm else "$env:PHONNECT_YES = '1'; "
         script = (
-            f"$env:PHONNECT_UPDATE = '1'; $env:PHONNECT_VERSION = '{version}'; "
+            f"$env:PHONNECT_UPDATE = '1'; $env:PHONNECT_VERSION = '{version}'; {yes}"
+            "$env:PHONNECT_RESULT = ''; "
             f"irm {installer_url(version, 'install.ps1')} | iex; "
-            "Read-Host 'Press Enter to close this window'"
+            "if ($env:PHONNECT_RESULT -eq 'ok') { Start-Sleep 5 } "
+            "else { Read-Host 'Press Enter to close this window' }"
         )
         return ["powershell.exe", "-NoLogo", "-NoProfile", "-Command", script]
+    flags = "--update --version " + shlex.quote(version) + ("" if confirm else " --yes")
     script = (
-        f"curl -fsSL {shlex.quote(installer_url(version, 'install.sh'))}"
-        f" | sh -s -- --update --version {shlex.quote(version)}"
+        f"if curl -fsSL {shlex.quote(installer_url(version, 'install.sh'))} | sh -s -- {flags}; "
+        "then sleep 5; else printf '\\nPress Enter to close this window '; read _; fi"
     )
-    return ["sh", "-c", script + "; printf '\\nPress Enter to close this window '; read _"]
+    return ["sh", "-c", script]
 
 
-def start_update(version: str) -> None:
-    """Open a terminal window that updates Phonnect to `version` (it asks to confirm first)."""
+def start_update(version: str, confirm: bool = True) -> None:
+    """Open a terminal window that updates Phonnect to `version`."""
     from phonnect.osutil import open_terminal
 
     log.info("Starting the update to Phonnect %s", version)
-    open_terminal(updater_command(version))
+    open_terminal(updater_command(version, confirm))

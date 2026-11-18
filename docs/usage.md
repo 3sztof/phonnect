@@ -22,11 +22,10 @@ Settings                              >  Auto-launch on USB
                                          Hide phone keyboard while mirroring
                                          Mouse buttons >  Right click / Middle click / Side buttons
                                          Start at login
-                                         Check for updates (once a day) / Check for updates now
+                                         Check for updates automatically
                                          Open log / Open settings folder
                                          Phonnect X.Y.Z (the installed version)
-Update Phonnect to X.Y.Z…                 only when there's a new release
-scrcpy X.Y is available…                  only when there's a new scrcpy: shows how to update it
+Check for updates                         becomes "Update Phonnect to X.Y.Z" when there's a new release
 ---
 Quit
 ```
@@ -36,7 +35,7 @@ Quit
 - **Show window** (Windows) brings a mirror window hidden behind others to the front.
 - **Open shell** opens `adb shell` for that phone in your terminal app (on Windows, your default terminal, e.g. Windows Terminal).
 - The icon is green when a phone is connected, and red if scrcpy or adb wasn't found. While it waits, it's white or black to match the other icons next to it (it follows dark and light mode). Hover over it for a status summary.
-- **Update Phonnect** opens a terminal window that installs the new release, after asking. It stops the app first (putting phone settings back), then starts the new version. Settings and remembered phones are kept. The check asks GitHub's API for the latest release once a day and sends nothing else; *Check for updates* turns it off.
+- **Updates live in one entry.** **Check for updates** asks GitHub now and tells you the result, including whether a newer scrcpy exists and how to update it (scrcpy and adb belong to your package manager, so Phonnect doesn't update them). When a new Phonnect release is out, the entry becomes **Update Phonnect to X.Y.Z**: one click updates it in a small terminal window, which closes by itself when it's done. The app stops first, putting phone settings back, and the new version starts. Settings and remembered phones are kept. With *Check for updates automatically* on (the default), it checks once a day by itself. It only asks GitHub's API for the latest release and sends nothing else.
 - **Quit** stops watching for phones. Open mirror windows stay open, but the sidebars close and every phone setting the app changed (rotation, content size) is put back.
 
 ## The sidebar

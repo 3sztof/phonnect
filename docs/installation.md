@@ -57,7 +57,7 @@ Pass options after `sh -s --` on macOS / Linux, e.g. `curl -fsSL …/install.sh 
 
 ## Updating
 
-**Update Phonnect to X.Y.Z…** appears in the tray menu when there's a new release (it checks GitHub once a day; *Settings → Check for updates* turns that off). Clicking it opens a terminal window that runs that release's installer in update mode: it stops the app (phone settings it changed are put back), replaces it, and starts it again. Settings, remembered phones and start at login are kept.
+The tray menu's **Check for updates** entry becomes **Update Phonnect to X.Y.Z** when there's a new release (it checks GitHub once a day; *Settings → Check for updates automatically* turns that off). One click runs that release's installer in update mode in a small terminal window, which closes by itself when it's done: it stops the app (phone settings it changed are put back), replaces it, and starts it again. Settings, remembered phones and start at login are kept. scrcpy and adb aren't updated by Phonnect: *Check for updates* tells you when there's a newer scrcpy and which command updates it.
 
 From a terminal: `phonnect update` (or `phonnect update --check` to only check).
 
