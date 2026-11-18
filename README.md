@@ -92,6 +92,7 @@ Mirror Galaxy S24 (Wi-Fi)                 connected but no window yet: one click
 Connect and mirror Pixel 7 (Wi-Fi)        paired or seen before: connects, then mirrors
 ---
 Audio                                 >  Off / PC and phone / PC only
+Force landscape                           checkbox
 Wi-Fi                                 >  Pair new phone… / Connect to address… / Manage Wi-Fi phones… / Disconnect all
 Settings                              >  Auto-launch on USB / on Wi-Fi, Hide phone keyboard, Start at login, Open log, Open settings folder
 ---
@@ -109,6 +110,7 @@ Quit
 | Audio: **PC and phone** | Also plays on the PC while the phone keeps playing, for example to a Bluetooth amp (Android 13+, scrcpy 2.6+; apps can opt out of capture) |
 | Audio: **PC only** | Sound moves to the PC, and the phone goes silent |
 | Hide phone keyboard while mirroring | scrcpy acts as a physical keyboard (`--keyboard=uhid`), so the phone hides its on-screen keyboard and you type on the PC |
+| Force landscape | Rotates the phone to landscape while it's mirrored, including apps that ask for portrait, which may then look letterboxed or stretched. Applies right away. Your rotation setting (auto-rotate or locked) is saved first and restored when the window closes, you turn this off, or you quit. If the phone is unplugged mid-session, it's restored the next time the phone connects. In the window, scrcpy's own **Alt+R** shortcut rotates once without locking |
 
 Changing the audio or keyboard setting reopens an open mirror window to apply it.
 
@@ -147,6 +149,7 @@ Changing the audio or keyboard setting reopens an open mirror window to apply it
   "auto_usb": true,
   "auto_wireless": false,
   "hide_phone_keyboard": true,
+  "force_landscape": false,
   "audio": "off",
   "scrcpy_args": ["--stay-awake"],
   "wireless_extra_args": ["--max-size=1600", "--video-bit-rate=6M"],

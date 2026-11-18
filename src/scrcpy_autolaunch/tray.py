@@ -7,6 +7,7 @@ Menu layout (phones first, because that's what you click most):
     Connect and mirror Pixel 7 (Wi-Fi)    (known, not connected: one click)
     ---
     Audio                              >  Off / PC and phone / PC only
+    Force landscape                       (checkbox)
     Wi-Fi                              >  Pair new phone / Connect to address / Manage / Disconnect all
     Settings                           >  auto-launch, keyboard, start at login, log, folder
     ---
@@ -117,6 +118,10 @@ class TrayApp:
             if adb and scrcpy
             else None
         )
+        if self.watcher is not None:
+            from scrcpy_autolaunch.rotation import RotationKeeper
+
+            self.watcher.rotation = RotationKeeper(adb, self.watcher.online_serial)
         self.icon = icon_class(pystray)(
             "scrcpy-autolaunch",
             icon=icons.tray_icon("problem" if problem else "waiting"),
@@ -142,6 +147,7 @@ class TrayApp:
         log.info("Quit from tray menu")
         if self.watcher:
             self.watcher.stop()
+            self.watcher.restore_all_rotation()
         self.icon.stop()
 
     # ── state shown in the tray ──────────────────────────────────────────────
@@ -203,6 +209,11 @@ class TrayApp:
                     for mode, text in AUDIO_MODES
                 )
             ),
+        )
+        yield Item(
+            "Force landscape",
+            self._toggle_landscape,
+            checked=lambda _: self.config.force_landscape,
         )
         yield Item(
             "Wi-Fi",
@@ -344,6 +355,14 @@ class TrayApp:
                 self._restart_sessions()
 
         return action
+
+    def _toggle_landscape(self, *_):
+        self.config.force_landscape = not self.config.force_landscape
+        self.config.save()
+        log.info("Setting force_landscape = %s", self.config.force_landscape)
+        self.icon.update_menu()
+        if self.watcher:
+            self.watcher.apply_landscape_setting()  # applies to open windows right away
 
     def _audio_is(self, mode: str):
         return lambda _item: self.config.audio == mode

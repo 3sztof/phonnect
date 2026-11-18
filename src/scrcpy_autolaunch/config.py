@@ -19,6 +19,9 @@ class Config:
     # Adds --keyboard=uhid: scrcpy acts as a physical keyboard, so Android hides
     # the on-screen keyboard while mirroring. Nothing changes on the phone permanently.
     hide_phone_keyboard: bool = True
+    # Rotate the phone to landscape while it's mirrored (even apps that ask for
+    # portrait); the previous rotation setting is restored when the window closes.
+    force_landscape: bool = False
     # "off":  --no-audio, sound stays on the phone only (default)
     # "both": play on the PC *and* keep playing on the phone (Android 13+; apps may opt out)
     # "pc":   move sound to the PC; the phone goes silent (also e.g. a Bluetooth amp)

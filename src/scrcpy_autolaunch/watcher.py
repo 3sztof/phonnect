@@ -61,6 +61,7 @@ class Watcher:
         self.scrcpy = scrcpy
         self.scrcpy_version = scrcpy_version
         self.known = known  # wireless.KnownDevices, optional
+        self.rotation = None  # rotation.RotationKeeper, optional (set by the tray)
         self._on_change = on_change or (lambda: None)
         self._notify = notify or (lambda msg: None)
         self._popen = popen
@@ -129,8 +130,12 @@ class Watcher:
                     continue
                 self.hw_ids[dev.serial] = self.adb.hardware_id(dev.serial)
                 log.info("Device connected: %s [%s]", dev.label, dev.serial)
+                hw = self.hw_ids[dev.serial]
                 if self._auto_enabled(dev):
                     self._launch(dev)
+                if self.rotation is not None and hw not in self.sessions and self.rotation.has_saved(hw):
+                    # Left in landscape by a session that ended while the phone was unreachable.
+                    self.rotation.restore(hw)
                 if self.known is not None:
                     threading.Thread(
                         target=self._learn, args=(dev, self.hw_ids[dev.serial]), name="learn", daemon=True
@@ -189,8 +194,40 @@ class Watcher:
             return False
         log.info("Stopping scrcpy for %s (requested from the tray)", s.device.label)
         s.proc.terminate()
+        if self.rotation is not None:
+            self.rotation.restore(hw_id)
         self._on_change()
         return True
+
+    def online_serial(self, hw_id: str) -> str | None:
+        """An online adb serial for this phone (USB preferred), or None."""
+        with self._lock:
+            for d in sorted(self.devices.values(), key=lambda d: d.transport != USB):
+                if d.online and self.hw_ids.get(d.serial, d.serial) == hw_id:
+                    return d.serial
+        return None
+
+    def apply_landscape_setting(self) -> None:
+        """Lock or restore rotation for open windows after the setting changed."""
+        if self.rotation is None:
+            return
+        with self._lock:
+            active = [hw for hw, s in self.sessions.items() if s.proc.poll() is None]
+        for hw in active:
+            if self.config.force_landscape:
+                self.rotation.lock_landscape(hw)
+            else:
+                self.rotation.restore(hw)
+
+    def restore_all_rotation(self) -> None:
+        """On quit: put every phone we rotated back the way it was."""
+        if self.rotation is None:
+            return
+        with self._lock:
+            hws = list(self.sessions)
+        for hw in hws:
+            self.rotation.restore(hw)
+        self.rotation.flush()
 
     def snapshot(self) -> list[tuple[Device, bool]]:
         """Connected devices and whether each phone is currently being mirrored."""
@@ -288,6 +325,8 @@ class Watcher:
 
         self.sessions[hw] = Session(device=dev, hw_id=hw, proc=proc, started=self._clock())
         log.info("scrcpy started for %s (pid %s): %s", dev.label, proc.pid, " ".join(args[1:]))
+        if self.config.force_landscape and self.rotation is not None:
+            self.rotation.lock_landscape(hw)
         if proc.stdout is not None:
             threading.Thread(
                 target=self._pump_output, args=(proc, dev.serial), name="scrcpy-output", daemon=True
@@ -303,6 +342,8 @@ class Watcher:
             del self.sessions[hw]
             changed = True
             log.info("scrcpy exited for %s (code %s)", s.device.label, code)
+            if self.rotation is not None:
+                self.rotation.restore(hw)
             if code != 0 and self._clock() - s.started < QUICK_FAIL_SECONDS:
                 self._notify(f"scrcpy failed for {s.device.label} (exit code {code}). See the log.")
         return changed

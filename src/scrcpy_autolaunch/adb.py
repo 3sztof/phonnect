@@ -12,6 +12,14 @@ USB = "usb"
 WIRELESS = "wireless"
 EMULATOR = "emulator"
 
+FIXED_TO_USER_ROTATION = {"default", "enabled", "disabled", "enabled_if_no_auto_rotation"}
+# Rotation 1 = 90 degrees. "fixed-to-user-rotation enabled" makes the display follow
+# it even when the app in front asks for portrait.
+LANDSCAPE = {
+    "wm": {"method": "wm", "mode": "lock", "rotation": 1, "fixed": "enabled"},
+    "settings": {"method": "settings", "accelerometer_rotation": "0", "user_rotation": "1"},
+}
+
 
 @dataclass(frozen=True)
 class Device:
@@ -153,6 +161,46 @@ class Adb:
 
     def wifi_debugging_enabled(self, serial: str) -> bool | None:
         return self._global_flag(serial, "adb_wifi_enabled")
+
+    # ── screen rotation ──────────────────────────────────────────────────────
+
+    def rotation_state(self, serial: str) -> dict | None:
+        """The phone's current rotation settings, in a form apply_rotation() can restore."""
+        try:
+            out = self.run("-s", serial, "shell", "cmd", "window", "user-rotation", timeout=10).stdout.strip()
+            m = re.fullmatch(r"(lock|free)\s+(\d)", out)
+            if m:  # Android 12+: `cmd window user-rotation`
+                fixed = self.run("-s", serial, "shell", "cmd", "window", "fixed-to-user-rotation", timeout=10)
+                fixed_value = fixed.stdout.strip()
+                return {
+                    "method": "wm",
+                    "mode": m.group(1),
+                    "rotation": int(m.group(2)),
+                    "fixed": fixed_value if fixed_value in FIXED_TO_USER_ROTATION else "default",
+                }
+            accel = self.run("-s", serial, "shell", "settings", "get", "system", "accelerometer_rotation").stdout
+            user = self.run("-s", serial, "shell", "settings", "get", "system", "user_rotation").stdout
+            return {"method": "settings", "accelerometer_rotation": accel.strip(), "user_rotation": user.strip()}
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+
+    def apply_rotation(self, serial: str, state: dict) -> bool:
+        try:
+            if state["method"] == "wm":
+                script = (
+                    f"cmd window fixed-to-user-rotation {state['fixed']}; "
+                    f"cmd window user-rotation {state['mode']} {state['rotation']}"
+                )
+            else:
+                parts = [
+                    f"settings put system {key} {state[key]}"
+                    for key in ("accelerometer_rotation", "user_rotation")
+                    if str(state.get(key, "")).isdigit()
+                ]
+                script = "; ".join(parts)
+            return self.run("-s", serial, "shell", script, timeout=10).returncode == 0
+        except (OSError, subprocess.TimeoutExpired, KeyError):
+            return False
 
     def usb_debugging_enabled(self, serial: str) -> bool | None:
         return self._global_flag(serial, "adb_enabled")

@@ -66,13 +66,16 @@ def cmd_run(args) -> int:
         if problem:
             log.error(problem)
             return 1
+        from scrcpy_autolaunch.rotation import RotationKeeper
         from scrcpy_autolaunch.watcher import Watcher
 
         watcher = Watcher(cfg, Adb(adb), scrcpy, version)
+        watcher.rotation = RotationKeeper(watcher.adb, watcher.online_serial)
         try:
             watcher.run_forever()
         except KeyboardInterrupt:
             watcher.stop()
+            watcher.restore_all_rotation()
     return 0
 
 
