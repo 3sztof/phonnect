@@ -1,4 +1,17 @@
-"""System tray / menu bar icon around the watcher."""
+"""System tray / menu bar icon around the watcher.
+
+Menu layout (phones first, because that's what you click most):
+
+    Pixel 9 Pro - mirroring (USB)      >  Show window / Stop mirroring / Disconnect Wi-Fi
+    Mirror Galaxy S24 (Wi-Fi)             (connected, not mirrored: one click)
+    Connect and mirror Pixel 7 (Wi-Fi)    (known, not connected: one click)
+    ---
+    Audio                              >  Off / PC and phone / PC only
+    Wi-Fi                              >  Pair new phone / Connect to address / Manage / Disconnect all
+    Settings                           >  auto-launch, keyboard, start at login, log, folder
+    ---
+    Quit
+"""
 
 from __future__ import annotations
 
@@ -6,18 +19,20 @@ import logging
 import subprocess
 import sys
 import threading
+import time
+from dataclasses import dataclass, field
 
 from scrcpy_autolaunch import autostart, paths
-from scrcpy_autolaunch.adb import WIRELESS, Adb
+from scrcpy_autolaunch.adb import USB, WIRELESS, Adb
 from scrcpy_autolaunch.config import Config
-from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, gui_python, open_path
+from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, focus_process_window, gui_python, open_path
 from scrcpy_autolaunch.watcher import Watcher
-from scrcpy_autolaunch.wireless import KnownDevices, reconnect, status_of, wireless_serial_for
+from scrcpy_autolaunch.wireless import KnownDevices, reconnect
 
 log = logging.getLogger(__name__)
 
-GREEN = (61, 220, 132, 255)  # Android green: a device is connected
-GREY = (150, 150, 150, 255)  # waiting for a device
+GREEN = (61, 220, 132, 255)  # a phone is connected
+GREY = (150, 150, 150, 255)  # waiting for a phone
 RED = (220, 60, 60, 255)  # adb/scrcpy not found
 
 AUDIO_MODES = (
@@ -25,6 +40,54 @@ AUDIO_MODES = (
     ("both", "PC and phone (Android 13+)"),
     ("pc", "PC only (phone goes silent)"),
 )
+
+STATE_TEXT = {
+    "unauthorized": "allow USB debugging on the phone",
+    "no permissions": "no USB permission (see README)",
+    "offline": "not responding, replug it",
+}
+
+
+@dataclass
+class PhoneRow:
+    hw_id: str
+    name: str
+    # "mirroring" | "connected" | "connecting" | "available" | an adb state like "unauthorized"
+    state: str
+    via: list[str] = field(default_factory=list)  # "USB", "Wi-Fi"
+    wifi_serial: str | None = None
+
+    @property
+    def via_text(self) -> str:
+        return " + ".join(self.via)
+
+
+def build_rows(phones, known, connecting: set[str]) -> list[PhoneRow]:
+    """Merge connected phones (from the watcher) with remembered/paired ones."""
+    rows: dict[str, PhoneRow] = {}
+    for hw, devs, mirroring in phones:
+        online = [d for d in devs if d.online]
+        model = next((d.model for d in devs if d.model), "")
+        name = model.replace("_", " ") or devs[0].serial
+        if online:
+            state = "mirroring" if mirroring else "connected"
+        else:
+            state = devs[0].state
+        rows[hw] = PhoneRow(
+            hw_id=hw,
+            name=name,
+            state=state,
+            via=[("USB" if d.transport == USB else "Wi-Fi") for d in online],
+            wifi_serial=next((d.serial for d in online if d.transport == WIRELESS), None),
+        )
+    for k in known:
+        if k.hw_id in rows:
+            if rows[k.hw_id].name == k.hw_id and k.model:
+                rows[k.hw_id].name = k.label
+            continue
+        rows[k.hw_id] = PhoneRow(k.hw_id, k.label, "connecting" if k.hw_id in connecting else "available")
+    order = {"mirroring": 0, "connected": 1, "connecting": 3, "available": 4}
+    return sorted(rows.values(), key=lambda r: (order.get(r.state, 2), r.name))
 
 
 def make_icon(color: tuple[int, int, int, int]):
@@ -99,14 +162,19 @@ class TrayApp:
 
     # ── state shown in the tray ──────────────────────────────────────────────
 
+    def rows(self) -> list[PhoneRow]:
+        phones = self.watcher.phones() if self.watcher else []
+        return build_rows(phones, self.known.all(), self._connecting)
+
     def refresh(self) -> None:
         try:
+            rows = self.rows()
             if self.problem:
                 color = RED
             else:
-                color = GREEN if self.watcher and self.watcher.snapshot() else GREY
+                color = GREEN if any(r.via for r in rows) else GREY
             self.icon.icon = make_icon(color)
-            self.icon.title = self._tooltip()
+            self.icon.title = self._tooltip(rows)
             self.icon.update_menu()
         except Exception:
             log.exception("Tray refresh failed")
@@ -118,40 +186,29 @@ class TrayApp:
         except Exception:
             pass  # not every Linux tray backend supports notifications
 
-    def _status_lines(self) -> list[str]:
+    def _tooltip(self, rows: list[PhoneRow]) -> str:
         if self.problem:
-            return [self.problem]
-        devices = self.watcher.snapshot() if self.watcher else []
-        if not devices:
-            return ["No device connected"]
-        lines = []
-        for dev, mirroring in devices:
-            state = "mirroring" if mirroring else (dev.state if not dev.online else "connected")
-            lines.append(f"{dev.label}: {state}")
-        return lines
-
-    def _tooltip(self) -> str:
+            lines = [self.problem]
+        else:
+            lines = [
+                f"{r.name}: {r.state} ({r.via_text})" if r.via else f"{r.name}: {STATE_TEXT.get(r.state, r.state)}"
+                for r in rows
+                if r.state != "available"
+            ] or ["No phone connected"]
         # Windows limits tooltips to 127 characters.
-        return ("scrcpy-autolaunch\n" + "\n".join(self._status_lines()))[:127]
+        return ("scrcpy-autolaunch\n" + "\n".join(lines))[:127]
 
     # ── menu ─────────────────────────────────────────────────────────────────
 
     def _menu_items(self):
         Item, Menu = self.pystray.MenuItem, self.pystray.Menu
-        has_watcher = self.watcher is not None
-        for line in self._status_lines():
-            yield Item(line, None, enabled=False)
-        yield Menu.SEPARATOR
-        yield Item("Mirror now", self._mirror_now, default=True, enabled=has_watcher)
-        yield Item("Auto-launch on USB", self._toggle("auto_usb"), checked=lambda _: self.config.auto_usb)
-        yield Item(
-            "Auto-launch on Wi-Fi", self._toggle("auto_wireless"), checked=lambda _: self.config.auto_wireless
-        )
-        yield Item(
-            "Hide phone keyboard while mirroring",
-            self._toggle("hide_phone_keyboard", restart=True),
-            checked=lambda _: self.config.hide_phone_keyboard,
-        )
+        if self.problem:
+            yield Item(self.problem, None, enabled=False)
+            yield Item("Open log", lambda *_: self._open(paths.log_file()))
+            yield Menu.SEPARATOR
+        else:
+            yield from self._phone_items()
+            yield Menu.SEPARATOR
         yield Item(
             "Audio",
             Menu(
@@ -162,53 +219,103 @@ class TrayApp:
             ),
         )
         yield Item(
-            "Wi-Fi devices",
-            Menu(self._wifi_items),
+            "Wi-Fi",
+            Menu(
+                Item("Pair new phone…", lambda *_: self._dialog("pair")),
+                Item("Connect to address…", lambda *_: self._dialog("connect")),
+                Item("Manage Wi-Fi phones…", lambda *_: self._dialog("devices")),
+                Menu.SEPARATOR,
+                Item("Disconnect all Wi-Fi phones", lambda *_: self._background(self._disconnect_all)),
+            ),
             enabled=self.adb is not None,
         )
+        yield Item(
+            "Settings",
+            Menu(
+                Item("Auto-launch on USB", self._toggle("auto_usb"), checked=lambda _: self.config.auto_usb),
+                Item(
+                    "Auto-launch on Wi-Fi",
+                    self._toggle("auto_wireless"),
+                    checked=lambda _: self.config.auto_wireless,
+                ),
+                Item(
+                    "Hide phone keyboard while mirroring",
+                    self._toggle("hide_phone_keyboard", restart=True),
+                    checked=lambda _: self.config.hide_phone_keyboard,
+                ),
+                Item("Start at login", self._toggle_autostart, checked=lambda _: autostart.is_enabled()),
+                Menu.SEPARATOR,
+                Item("Open log", lambda *_: self._open(paths.log_file())),
+                Item("Open settings folder", lambda *_: self._open(paths.config_dir())),
+            ),
+        )
         yield Menu.SEPARATOR
-        yield Item("Start at login", self._toggle_autostart, checked=lambda _: autostart.is_enabled())
-        yield Item("Open log", lambda *_: self._open(paths.log_file()))
-        yield Item("Open settings folder", lambda *_: self._open(paths.config_dir()))
         yield Item("Quit", self.quit)
 
-    def _wifi_items(self):
+    def _phone_items(self):
         Item, Menu = self.pystray.MenuItem, self.pystray.Menu
-        devices = [d for d, _ in self.watcher.snapshot()] if self.watcher else []
-        known = self.known.all()
-        for k in known:
-            if k.hw_id in self._connecting:
-                text = f"{k.label}: connecting…"
+        rows = self.rows()
+        if not rows:
+            yield Item("No phones yet: plug one in with USB debugging on", None, enabled=False)
+            yield Item("Pair a phone over Wi-Fi…", lambda *_: self._dialog("pair"))
+            return
+        for r in rows:
+            if r.state == "mirroring":
+                sub = []
+                if IS_WINDOWS:
+                    sub.append(Item("Show window", self._show(r.hw_id), default=True))
+                sub.append(Item("Stop mirroring", self._stop(r.hw_id)))
+                if r.wifi_serial:
+                    sub.append(Item("Disconnect Wi-Fi", self._disconnect(r.wifi_serial)))
+                yield Item(f"{r.name}: mirroring ({r.via_text})", Menu(*sub))
+            elif r.state == "connected":
+                yield Item(f"Mirror {r.name} ({r.via_text})", self._mirror(r.hw_id))
+            elif r.state == "available":
+                yield Item(f"Connect and mirror {r.name} (Wi-Fi)", self._connect_and_mirror(r.hw_id))
+            elif r.state == "connecting":
+                yield Item(f"{r.name}: connecting…", None, enabled=False)
             else:
-                text = f"{k.label}: {status_of(k, devices)}"
-            yield Item(text, self._wifi_toggle(k.hw_id), checked=self._wifi_checked(k.hw_id))
-        if not known:
-            yield Item("No paired phones yet", None, enabled=False)
-        yield Menu.SEPARATOR
-        yield Item("Manage Wi-Fi devices…", lambda *_: self._dialog("devices"))
-        yield Item("Pair new device…", lambda *_: self._dialog("pair"))
-        yield Item("Connect to address…", lambda *_: self._dialog("connect"))
-        yield Item("Disconnect all Wi-Fi devices", lambda *_: self._background(self._disconnect))
+                yield Item(f"{r.name}: {STATE_TEXT.get(r.state, r.state)}", None, enabled=False)
 
-    def _wifi_checked(self, hw_id: str):
-        def checked(_item):
-            k = self.known.get(hw_id)
-            devices = [d for d, _ in self.watcher.snapshot()] if self.watcher else []
-            return k is not None and status_of(k, devices) == "Wi-Fi"
+    # ── phone actions ────────────────────────────────────────────────────────
 
-        return checked
+    def _mirror(self, hw_id: str):
+        def action(*_):
+            if self.watcher:
+                self._background(lambda: log.info("Mirror %s: %s", hw_id, self.watcher.mirror(hw_id)))
 
-    def _wifi_toggle(self, hw_id: str):
-        """Click a phone: connect if it isn't connected over Wi-Fi, disconnect if it is."""
+        return action
+
+    def _show(self, hw_id: str):
+        def action(*_):
+            pid = self.watcher.session_pid(hw_id) if self.watcher else None
+            if pid is None or not focus_process_window(pid):
+                log.info("No scrcpy window found for %s", hw_id)
+
+        return action
+
+    def _stop(self, hw_id: str):
+        def action(*_):
+            if self.watcher:
+                self.watcher.stop_mirroring(hw_id)
+
+        return action
+
+    def _disconnect(self, serial: str):
+        def action(*_):
+            assert self.adb is not None
+            log.info("Disconnecting %s", serial)
+            self._background(lambda: (self.adb.disconnect(serial), self.refresh()))
+
+        return action
+
+    def _connect_and_mirror(self, hw_id: str):
+        """Clicking a phone means 'show me this phone': connect over Wi-Fi, then mirror,
+        whatever the Wi-Fi auto-launch setting is."""
 
         def action(*_):
             k = self.known.get(hw_id)
-            if k is None or self.adb is None or hw_id in self._connecting:
-                return
-            serial = wireless_serial_for(k, self.adb.devices())
-            if serial is not None and status_of(k, self.adb.devices()) == "Wi-Fi":
-                log.info("Disconnecting %s (%s)", k.label, serial)
-                self._background(lambda: (self.adb.disconnect(serial), self.refresh()))
+            if k is None or self.adb is None or self.watcher is None or hw_id in self._connecting:
                 return
 
             def work():
@@ -218,25 +325,28 @@ class TrayApp:
                     ok, result = reconnect(self.adb, k, progress=lambda m: log.info("%s", m))
                 finally:
                     self._connecting.discard(hw_id)
-                if ok:
-                    self.known.remember(hw_id, address=result)
-                    log.info("Connected to %s at %s", k.label, result)
-                    self.notify(f"Connected to {k.label} over Wi-Fi.")
-                else:
+                if not ok:
                     log.warning("Could not connect to %s:\n%s", k.label, result)
-                    # Notifications are easy to miss; show the details in the window.
+                    # Notifications are easy to miss; show the details in a window.
                     self._dialog("devices", f"Could not connect to {k.label}.\n{result}")
+                    self.refresh()
+                    return
+                self.known.remember(hw_id, address=result)
+                log.info("Connected to %s at %s", k.label, result)
+                # Wait for the watcher to pick the device up, then open the window.
+                for _ in range(20):
+                    outcome = self.watcher.mirror(hw_id)
+                    if outcome != "not connected":
+                        log.info("Mirror %s: %s", k.label, outcome)
+                        break
+                    time.sleep(0.25)
                 self.refresh()
 
             self._background(work)
 
         return action
 
-    # ── actions ──────────────────────────────────────────────────────────────
-
-    def _mirror_now(self, *_):
-        if self.watcher:
-            self._background(self.watcher.mirror_now)
+    # ── settings actions ─────────────────────────────────────────────────────
 
     def _toggle(self, key: str, restart: bool = False):
         def action(*_):
@@ -311,12 +421,10 @@ class TrayApp:
 
         self._background(wait)
 
-    def _disconnect(self) -> None:
+    def _disconnect_all(self) -> None:
         assert self.adb is not None
-        if self.watcher and not any(d.transport == WIRELESS for d, _ in self.watcher.snapshot()):
-            self.notify("No Wi-Fi devices connected.")
-            return
         log.info("Disconnect all: %s", self.adb.disconnect())
+        self.refresh()
 
     @staticmethod
     def _background(fn) -> None:

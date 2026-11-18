@@ -56,9 +56,9 @@ scrcpy-autolaunch install
 ### Wi-Fi (optional, Android 11+)
 
 1. Turn on *Developer options → Wireless debugging*. The phone and computer must be on the same network.
-2. In the tray menu, choose **Wi-Fi devices → Pair new device…**. On the phone, tap **Pair device with pairing code** and type the IP:port and code it shows. The app connects right after pairing.
-3. After that, the phone is listed under **Wi-Fi devices**. Click it to connect, or click it again to disconnect. **Manage Wi-Fi devices…** opens a window with the same list, a status for each phone and error details.
-4. To auto-launch over Wi-Fi as well, turn on **Auto-launch on Wi-Fi**.
+2. In the tray menu, choose **Wi-Fi → Pair new phone…**. On the phone, tap **Pair device with pairing code** and type the IP:port and code it shows. The app connects right after pairing.
+3. After that, the phone appears at the top of the tray menu. Click **Connect and mirror …** to connect over Wi-Fi and open the window. **Wi-Fi → Manage Wi-Fi phones…** opens a window with every paired phone, its status and any error details.
+4. To have it open the window by itself whenever the phone connects over Wi-Fi, turn on **Settings → Auto-launch on Wi-Fi**.
 
 **Why connecting can fail, and how reconnecting works:** Android picks a **new port** every time Wireless debugging turns on, after a reboot or a network change. The **IP address** usually stays the same, depending on your router's DHCP. To make it permanent, give the phone a DHCP reservation. The app remembers each phone's IP, learned over USB or Wi-Fi, and reconnects in this order:
 1. **mDNS:** the phone advertises its current port. This is fast, but some networks and VPN adapters block it.
@@ -73,22 +73,33 @@ Notes on Wi-Fi:
 
 ## Tray menu
 
-On Windows, left- or right-click the icon to open the menu.
+On Windows, left- or right-click the icon to open the menu. Phones come first, because that's what you click most:
 
-| Item | What it does |
+```
+Pixel 9 Pro: mirroring (USB)          >  Show window / Stop mirroring / Disconnect Wi-Fi
+Mirror Galaxy S24 (Wi-Fi)                 connected but no window yet: one click
+Connect and mirror Pixel 7 (Wi-Fi)        paired or seen before: connects, then mirrors
+---
+Audio                                 >  Off / PC and phone / PC only
+Wi-Fi                                 >  Pair new phone… / Connect to address… / Manage Wi-Fi phones… / Disconnect all
+Settings                              >  Auto-launch on USB / on Wi-Fi, Hide phone keyboard, Start at login, Open log, Open settings folder
+---
+Quit
+```
+
+- **Clicking a phone means "show me this phone".** It connects over Wi-Fi if needed and opens the mirror, whatever the auto-launch settings are. Auto-launch only controls what happens *without* a click.
+- A phone on both USB and Wi-Fi is one entry, mirrored over USB.
+- A phone that needs attention (for example `allow USB debugging on the phone`) shows that as its entry.
+- The icon is green when a phone is connected, grey while it waits for one, and red if scrcpy or adb wasn't found. Hovering over the icon shows a status summary.
+
+| Setting | |
 |---|---|
-| *(status lines)* | Connected phones, and whether each is being mirrored |
-| **Mirror now** | Opens a window for every connected phone that doesn't have one |
-| Auto-launch on USB / Wi-Fi | Turns auto-launch on or off for each connection type |
-| Hide phone keyboard while mirroring | scrcpy acts as a physical keyboard (`--keyboard=uhid`), so the phone hides its on-screen keyboard and you type on the PC. Reopens an open window to apply |
-| Audio → Off / PC and phone / PC only | **Off** (default): sound stays on the phone. **PC and phone**: also plays on the PC while the phone keeps playing, for example to a Bluetooth amp (Android 13+, scrcpy 2.6+; apps can opt out of capture). **PC only**: sound moves to the PC and the phone goes silent. Reopens an open window to apply |
-| Wi-Fi devices → *phone* | Click to connect, click again to disconnect (checked = connected) |
-| Wi-Fi devices → Manage… / Pair… / Connect to address… / Disconnect all | |
-| Start at login | Adds or removes the start-at-login entry |
-| Open log / Open settings folder | |
-| Quit | Stops the watcher. Open scrcpy windows stay open |
+| Audio: **Off** (default) | Sound stays on the phone |
+| Audio: **PC and phone** | Also plays on the PC while the phone keeps playing, for example to a Bluetooth amp (Android 13+, scrcpy 2.6+; apps can opt out of capture) |
+| Audio: **PC only** | Sound moves to the PC, and the phone goes silent |
+| Hide phone keyboard while mirroring | scrcpy acts as a physical keyboard (`--keyboard=uhid`), so the phone hides its on-screen keyboard and you type on the PC |
 
-The icon is green when a phone is connected, grey while it waits for one, and red if scrcpy or adb wasn't found.
+Changing the audio or keyboard setting reopens an open mirror window to apply it.
 
 **About the keyboard option:** Android hides the on-screen keyboard whenever a physical keyboard is attached, and that's what scrcpy pretends to be. Nothing changes on the phone permanently, and the on-screen keyboard comes back when the window closes. If PC typing comes out in the wrong layout, set it once on the phone: *Settings → System → Keyboard → Physical keyboard* (with a window open, press Alt+K to get there). Turn the option off if you'd rather type on the phone itself.
 

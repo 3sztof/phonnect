@@ -151,6 +151,46 @@ class Watcher:
         self._on_change()
         return started
 
+    def phones(self) -> list[tuple[str, list[Device], bool]]:
+        """Connected phones as (hardware id, adb devices for it USB-first, being mirrored)."""
+        with self._lock:
+            self._reap()
+            grouped: dict[str, list[Device]] = {}
+            for d in sorted(self.devices.values(), key=lambda d: d.transport != USB):
+                grouped.setdefault(self.hw_ids.get(d.serial, d.serial), []).append(d)
+            return [
+                (hw, devs, hw in self.sessions and self.sessions[hw].proc.poll() is None)
+                for hw, devs in grouped.items()
+            ]
+
+    def mirror(self, hw_id: str) -> str:
+        """Open a window for one phone. Returns a short result for the user."""
+        with self._lock:
+            self._reap()
+            if hw_id in self.sessions:
+                return "already mirroring"
+            for dev in sorted(self.devices.values(), key=lambda d: d.transport != USB):
+                if self.hw_ids.get(dev.serial, dev.serial) == hw_id and dev.online:
+                    ok = self._launch(dev)
+                    self._on_change()
+                    return "started" if ok else "could not start scrcpy"
+        return "not connected"
+
+    def session_pid(self, hw_id: str) -> int | None:
+        with self._lock:
+            s = self.sessions.get(hw_id)
+            return s.proc.pid if s is not None and s.proc.poll() is None else None
+
+    def stop_mirroring(self, hw_id: str) -> bool:
+        with self._lock:
+            s = self.sessions.pop(hw_id, None)  # popped first: not reported as a failure
+        if s is None:
+            return False
+        log.info("Stopping scrcpy for %s (requested from the tray)", s.device.label)
+        s.proc.terminate()
+        self._on_change()
+        return True
+
     def snapshot(self) -> list[tuple[Device, bool]]:
         """Connected devices and whether each phone is currently being mirrored."""
         with self._lock:

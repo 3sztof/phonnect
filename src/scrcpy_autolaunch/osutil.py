@@ -43,6 +43,34 @@ def spawn_detached(cmd: list[str]) -> subprocess.Popen:
     return subprocess.Popen(cmd, **kwargs)
 
 
+def focus_process_window(pid: int) -> bool:
+    """Bring the visible top-level window of `pid` to the front (Windows only)."""
+    if not IS_WINDOWS:
+        return False
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    found: list[int] = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def callback(hwnd, _lparam):
+        owner = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+        if owner.value == pid and user32.IsWindowVisible(hwnd):
+            found.append(hwnd)
+            return False
+        return True
+
+    user32.EnumWindows(callback, 0)
+    if not found:
+        return False
+    SW_RESTORE = 9
+    user32.ShowWindow(found[0], SW_RESTORE)
+    user32.SetForegroundWindow(found[0])
+    return True
+
+
 def open_path(path: Path) -> None:
     """Open a file or folder with the desktop's default application."""
     if IS_WINDOWS:

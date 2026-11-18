@@ -206,3 +206,24 @@ def test_snapshot_reports_mirroring():
     h.procs[0].close_window()
     h.tick(USB_PHONE)
     assert h.watcher.snapshot() == [(USB_PHONE, False)]
+
+
+def test_per_phone_mirror_stop_and_phones():
+    h = Harness(auto_usb=False)
+    h.tick(USB_PHONE)
+    assert h.watcher.phones() == [(USB_PHONE.serial, [USB_PHONE], False)]
+    assert h.watcher.mirror("unknown") == "not connected"
+    assert h.watcher.mirror(USB_PHONE.serial) == "started"
+    assert h.watcher.mirror(USB_PHONE.serial) == "already mirroring"
+    assert h.watcher.session_pid(USB_PHONE.serial) == h.procs[0].pid
+    assert h.watcher.stop_mirroring(USB_PHONE.serial)
+    h.tick(USB_PHONE)
+    assert h.notes == [], "stopping from the tray is not a failure"
+    assert h.watcher.phones()[0][2] is False
+
+
+def test_explicit_mirror_works_over_wifi_with_auto_wireless_off():
+    h = Harness()
+    h.tick(WIFI_OTHER_PHONE)
+    assert h.procs == []
+    assert h.watcher.mirror(WIFI_OTHER_PHONE.serial) == "started"
