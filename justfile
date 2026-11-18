@@ -44,6 +44,10 @@ log lines="30":
 test:
     uv run pytest -q
 
+# Bump the version, tag vX.Y.Z and push; CI then publishes the GitHub Release
+release version:
+    uv run python scripts/release.py {{version}}
+
 # Run the tray from this checkout (foreground)
 dev-tray:
     uv run scrcpy-autolaunch tray

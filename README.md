@@ -19,14 +19,27 @@ Opens an [scrcpy](https://github.com/Genymobile/scrcpy) mirror window as soon as
 
 ## Requirements
 
-- **scrcpy and adb** (scrcpy 2.0 or newer recommended)
+- **scrcpy and adb** (scrcpy 2.0 or newer recommended). These are **not bundled**: install them with your OS's package manager, which also keeps them up to date. On Windows, scrcpy's package includes adb.
   - Windows: `winget install Genymobile.scrcpy` (includes adb)
   - macOS: `brew install scrcpy && brew install --cask android-platform-tools`
   - Linux: `sudo apt install scrcpy adb` (or your distro's equivalent)
-- **[uv](https://docs.astral.sh/uv/)**: `just install` offers to install it if it's missing. Python 3.11 or newer is needed, and uv downloads it if your system doesn't have it.
-- **[just](https://github.com/casey/just)** (optional, only for the `just` commands): `uv tool install rust-just`, `winget install Casey.Just` or `brew install just`.
+- **[uv](https://docs.astral.sh/uv/)**: installs the app and its Python dependencies (`pystray`, `Pillow`) automatically. Python 3.11 or newer is needed, and uv downloads it if your system doesn't have it.
+- **[just](https://github.com/casey/just)** (optional, only for installing from a clone): `uv tool install rust-just`, `winget install Casey.Just` or `brew install just`.
 
 ## Install
+
+### From a release (recommended)
+
+Each [release](https://github.com/3sztof/scrcpy-autolaunch/releases) shows its install command. It looks like this:
+
+```sh
+uv tool install --force --python ">=3.11" https://github.com/3sztof/scrcpy-autolaunch/releases/download/v0.1.0/scrcpy_autolaunch-0.1.0-py3-none-any.whl
+scrcpy-autolaunch install
+```
+
+`scrcpy-autolaunch install` enables start at login, adds an app menu entry (Start menu on Windows, app launcher on Linux) and starts the tray app. To **upgrade**, run `scrcpy-autolaunch stop`, then the same `uv tool install --force …` command with the newer release's URL. Your settings and remembered phones are kept.
+
+### From a clone (for development, or to track `main`)
 
 ```sh
 git clone https://github.com/3sztof/scrcpy-autolaunch
@@ -40,12 +53,20 @@ just install
 3. Runs `scrcpy-autolaunch doctor` to check for scrcpy, adb, tray support and connected devices.
 4. Enables start at login, adds an app menu entry (Start menu on Windows, app launcher on Linux) and starts the tray app.
 
-**Without just or a clone:**
+**Without just or a clone**, straight from `main`:
 
 ```sh
 uv tool install --python ">=3.11" git+https://github.com/3sztof/scrcpy-autolaunch
 scrcpy-autolaunch install
 ```
+
+### Releasing (maintainers)
+
+```sh
+just release 0.2.0
+```
+
+This bumps `__version__`, runs the tests, commits, tags `v0.2.0` and pushes. The *Release* workflow then checks that the tag matches the version, builds the wheel and source archive, and publishes a GitHub Release with those files and the install command.
 
 ## Starting and stopping
 
@@ -166,6 +187,10 @@ Changing the audio or keyboard setting reopens an open mirror window to apply it
 The watcher runs `adb devices -l` once a second. A phone that shows up, or becomes authorized, gets a scrcpy window if auto-launch is on for its connection type. A phone is only treated as "new" again after it disappears from adb, which is how closing the window avoids an instant relaunch. If the same phone is connected over both USB and Wi-Fi, it's recognized by its hardware serial number and gets one window, over USB. scrcpy is started with `ADB` set to the same adb binary, so two different adb versions don't keep restarting each other's server.
 
 ## Platform notes
+
+**Apps that show a black screen**
+Banking, password, payment and DRM video apps mark their windows as *secure* (Android's `FLAG_SECURE`). Android then leaves them out of every screenshot, screen recording and screen share, scrcpy included. That's an Android security rule, and nothing on the PC side can get around it. The only workarounds need a rooted phone and a module that removes the flag. That weakens the phone's security, can break those same apps (many refuse to run on rooted phones) and may break their terms of use, so this project doesn't do it.
+Separately, Android 15+ can hide notification contents and one-time codes during screen sharing. If you see that while mirroring, *Developer options → Disable screen share protections* turns it off. This doesn't affect secure apps.
 
 **Linux**
 - Tray: GNOME needs the *AppIndicator and KStatusNotifierItem Support* extension. KDE, XFCE and Cinnamon work out of the box.

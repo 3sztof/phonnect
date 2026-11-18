@@ -1,0 +1,56 @@
+name: Release
+
+# Push a tag like v0.2.0 (`just release 0.2.0` does it) to build the package
+# and publish a GitHub Release with the wheel and source archive attached.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+
+      - name: Check the tag matches the package version
+        run: |
+          version="$(uv run --quiet python -c 'import scrcpy_autolaunch; print(scrcpy_autolaunch.__version__)')"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match __version__ $version" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Unit tests
+        run: uv run pytest -q
+
+      - name: Build wheel and sdist
+        run: uv build
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          wheel="scrcpy_autolaunch-${VERSION}-py3-none-any.whl"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${wheel}"
+          cat > notes.md <<EOF
+          ## Install / upgrade
+
+          Requires [uv](https://docs.astral.sh/uv/) and scrcpy + adb (see the README).
+
+          \`\`\`sh
+          uv tool install --force --python ">=3.11" ${url}
+          scrcpy-autolaunch install
+          \`\`\`
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "scrcpy-autolaunch $VERSION" \
+            --notes-file notes.md \
+            --generate-notes \
+            --verify-tag
