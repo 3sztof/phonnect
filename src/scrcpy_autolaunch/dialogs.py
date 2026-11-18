@@ -47,6 +47,19 @@ def run_dialog(kind: str, adb: Adb, message: str = "") -> int:
     return _standalone_form(kind, adb)
 
 
+def _set_window_icon(root) -> None:
+    try:
+        import tkinter as tk
+
+        from scrcpy_autolaunch.icons import ensure_icon_files
+
+        _, png = ensure_icon_files()
+        root._app_icon = tk.PhotoImage(file=str(png))  # keep a reference, or Tk drops it
+        root.iconphoto(True, root._app_icon)
+    except Exception:
+        pass  # cosmetic only
+
+
 class _Worker:
     """Runs blocking adb calls off the Tk thread and hands results back to it."""
 
@@ -174,6 +187,7 @@ def _standalone_form(kind: str, adb: Adb) -> int:
 
     root = tk.Tk()
     root.withdraw()
+    _set_window_icon(root)
     result = {"code": 1}
 
     def finished(ok, _msg):
@@ -194,6 +208,7 @@ class DevicesWindow:
         self.known = KnownDevices()
         self.root = tk.Tk()
         self.root.title("Wi-Fi devices - scrcpy-autolaunch")
+        _set_window_icon(self.root)
         self.root.minsize(560, 300)
         self.worker = _Worker(self.root)
 

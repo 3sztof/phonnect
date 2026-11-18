@@ -53,12 +53,23 @@ def enable(cmd: list[str] | None = None) -> Path:
     path = entry_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     if IS_WINDOWS:
-        _write_windows_shortcut(path, cmd)
+        _write_windows_shortcut(path, cmd, _icon_file(".ico"))
     elif IS_MAC:
         path.write_bytes(macos_plist(cmd))
     else:
-        path.write_text(linux_desktop_entry(cmd), encoding="utf-8")
+        path.write_text(linux_desktop_entry(cmd, icon=_icon_file(".png")), encoding="utf-8")
     return path
+
+
+def _icon_file(suffix: str) -> str:
+    """Path of the generated app icon, or '' if it can't be written (the shortcut still works)."""
+    try:
+        from scrcpy_autolaunch.icons import ensure_icon_files
+
+        ico, png = ensure_icon_files()
+        return str(ico if suffix == ".ico" else png)
+    except Exception:
+        return ""
 
 
 def disable() -> bool:
@@ -91,9 +102,9 @@ def add_menu_entry(cmd: list[str] | None = None) -> Path | None:
     cmd = cmd or tray_command()
     path.parent.mkdir(parents=True, exist_ok=True)
     if IS_WINDOWS:
-        _write_windows_shortcut(path, cmd)
+        _write_windows_shortcut(path, cmd, _icon_file(".ico"))
     else:
-        path.write_text(linux_desktop_entry(cmd, autostart=False), encoding="utf-8")
+        path.write_text(linux_desktop_entry(cmd, autostart=False, icon=_icon_file(".png")), encoding="utf-8")
     return path
 
 
@@ -126,21 +137,21 @@ def _desktop_quote(arg: str) -> str:
     return f'"{escaped}"'
 
 
-def linux_desktop_entry(cmd: list[str], autostart: bool = True) -> str:
+def linux_desktop_entry(cmd: list[str], autostart: bool = True, icon: str = "") -> str:
     lines = [
         "[Desktop Entry]",
         "Type=Application",
         "Name=scrcpy-autolaunch",
         "Comment=Open scrcpy when an Android device connects",
         "Exec=" + " ".join(_desktop_quote(a) for a in cmd),
-        "Icon=smartphone",
+        f"Icon={icon or 'smartphone'}",
         "Terminal=false",
     ]
     lines.append("X-GNOME-Autostart-enabled=true" if autostart else "Categories=Utility;")
     return "\n".join(lines + [""])
 
 
-def _write_windows_shortcut(path: Path, cmd: list[str]) -> None:
+def _write_windows_shortcut(path: Path, cmd: list[str], icon: str = "") -> None:
     # Values go in through environment variables to avoid any quoting issues.
     script = (
         "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:SAL_LNK);"
@@ -148,6 +159,7 @@ def _write_windows_shortcut(path: Path, cmd: list[str]) -> None:
         "$s.Arguments = $env:SAL_ARGS;"
         "$s.WorkingDirectory = $env:USERPROFILE;"
         "$s.Description = 'scrcpy-autolaunch tray';"
+        "if ($env:SAL_ICON) { $s.IconLocation = $env:SAL_ICON + ',0' };"
         "$s.Save()"
     )
     env = dict(
@@ -155,6 +167,7 @@ def _write_windows_shortcut(path: Path, cmd: list[str]) -> None:
         SAL_LNK=str(path),
         SAL_TARGET=cmd[0],
         SAL_ARGS=subprocess.list2cmdline(cmd[1:]),
+        SAL_ICON=icon,
     )
     subprocess.run(
         ["powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],

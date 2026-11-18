@@ -22,7 +22,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from scrcpy_autolaunch import autostart, paths
+from scrcpy_autolaunch import autostart, icons, paths
 from scrcpy_autolaunch.adb import USB, WIRELESS, Adb
 from scrcpy_autolaunch.config import Config
 from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, focus_process_window, gui_python, open_path
@@ -30,10 +30,6 @@ from scrcpy_autolaunch.watcher import Watcher
 from scrcpy_autolaunch.wireless import KnownDevices, reconnect
 
 log = logging.getLogger(__name__)
-
-GREEN = (61, 220, 132, 255)  # a phone is connected
-GREY = (150, 150, 150, 255)  # waiting for a phone
-RED = (220, 60, 60, 255)  # adb/scrcpy not found
 
 AUDIO_MODES = (
     ("off", "Off (sound stays on the phone)"),
@@ -90,19 +86,6 @@ def build_rows(phones, known, connecting: set[str]) -> list[PhoneRow]:
     return sorted(rows.values(), key=lambda r: (order.get(r.state, 2), r.name))
 
 
-def make_icon(color: tuple[int, int, int, int]):
-    from PIL import Image, ImageDraw
-
-    size = 64
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    # Phone outline with a screen and a home bar.
-    d.rounded_rectangle((16, 4, 48, 60), radius=7, fill=color)
-    d.rounded_rectangle((20, 10, 44, 50), radius=2, fill=(30, 30, 30, 255))
-    d.rounded_rectangle((27, 53, 37, 56), radius=1, fill=(30, 30, 30, 255))
-    return img
-
-
 def icon_class(pystray):
     """On Windows, open the menu on left click too (pystray only does right click)."""
     if not IS_WINDOWS:
@@ -128,6 +111,7 @@ class TrayApp:
         self.problem = problem
         self.known = KnownDevices()
         self._connecting: set[str] = set()
+        self._icon_state = "problem" if problem else "waiting"
         self.watcher = (
             Watcher(config, adb, scrcpy, version, on_change=self.refresh, notify=self.notify, known=self.known)
             if adb and scrcpy
@@ -135,7 +119,7 @@ class TrayApp:
         )
         self.icon = icon_class(pystray)(
             "scrcpy-autolaunch",
-            icon=make_icon(RED if problem else GREY),
+            icon=icons.tray_icon("problem" if problem else "waiting"),
             title="scrcpy-autolaunch",
             menu=pystray.Menu(self._menu_items),
         )
@@ -170,10 +154,12 @@ class TrayApp:
         try:
             rows = self.rows()
             if self.problem:
-                color = RED
+                state = "problem"
             else:
-                color = GREEN if any(r.via for r in rows) else GREY
-            self.icon.icon = make_icon(color)
+                state = "connected" if any(r.via for r in rows) else "waiting"
+            if state != self._icon_state:
+                self._icon_state = state
+                self.icon.icon = icons.tray_icon(state)
             self.icon.title = self._tooltip(rows)
             self.icon.update_menu()
         except Exception:
