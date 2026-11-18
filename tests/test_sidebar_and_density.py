@@ -179,3 +179,31 @@ def test_mirror_and_quit_requests(home):
     from test_watcher import _wait_for
 
     assert _wait_for(lambda: quit_called)
+
+
+def test_desktop_mode_opens_second_window_once():
+    h = Harness(auto_usb=False)
+    h.tick(USB_PHONE)
+    assert h.watcher.open_desktop(HW) == "started"
+    args = h.procs[0].args
+    assert "--new-display=1920x1080/160" in args and "--no-audio" in args
+    assert "--window-title=Pixel 9 Pro desktop" in args
+    assert h.watcher.open_desktop(HW) == "already open"
+    assert len(h.procs) == 1
+    h.procs[0].close_window()
+    h.tick(USB_PHONE)
+    assert h.watcher.open_desktop(HW) == "started"
+
+
+def test_desktop_mode_needs_connection_and_scrcpy_3():
+    h = Harness()
+    assert h.watcher.open_desktop("missing") == "not connected"
+    h.tick(USB_PHONE)
+    h.watcher.scrcpy_version = (2, 7)
+    assert h.watcher.open_desktop(HW) == "desktop mode needs scrcpy 3.0 or newer"
+
+
+def test_desktop_request_from_sidebar():
+    h = Harness(auto_usb=False)
+    h.tick(USB_PHONE)
+    assert h.watcher.handle_control({"cmd": "open_desktop", "hw": HW}) == {"ok": True, "result": "started"}

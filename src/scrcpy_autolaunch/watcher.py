@@ -77,6 +77,8 @@ class Watcher:
         self.devices: dict[str, Device] = {}
         self.hw_ids: dict[str, str] = {}
         self.sessions: dict[str, Session] = {}
+        # Desktop mode windows (a second scrcpy on a virtual display), per phone.
+        self.desktops: dict[str, subprocess.Popen] = {}
         self._warned_usb_off: set[str] = set()
         # Phones whose window the user closed: not auto-launched over Wi-Fi again
         # (adb may silently reconnect them via mDNS) until clicked or plugged in.
@@ -193,6 +195,64 @@ class Watcher:
                     self._on_change()
                     return "started" if ok else "could not start scrcpy"
         return "not connected"
+
+    def open_desktop(self, hw_id: str) -> str:
+        """Open the phone's desktop mode on a second, PC-sized virtual screen."""
+        from scrcpy_autolaunch.osutil import focus_process_window
+
+        with self._lock:
+            existing = self.desktops.get(hw_id)
+            if existing is not None and existing.poll() is None:
+                focus_process_window(existing.pid)
+                return "already open"
+            if self.scrcpy_version is not None and self.scrcpy_version < (3, 0):
+                return "desktop mode needs scrcpy 3.0 or newer"
+            serial = self.online_serial(hw_id)
+            if serial is None:
+                return "not connected"
+            dev = self.devices[serial]
+            args = self.build_desktop_args(dev)
+            child_env = dict(os.environ)
+            child_env["ADB"] = self.adb.path
+            try:
+                proc = self._popen(
+                    args,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    env=child_env,
+                    creationflags=NO_WINDOW,
+                )
+            except OSError as exc:
+                log.error("Could not start desktop mode: %s", exc)
+                return f"could not start scrcpy: {exc}"
+            self.desktops[hw_id] = proc
+            log.info("Desktop mode started for %s (pid %s): %s", dev.label, proc.pid, " ".join(args[1:]))
+        if proc.stdout is not None:
+            threading.Thread(
+                target=self._pump_output, args=(proc, f"{serial} desktop"), name="desktop-output", daemon=True
+            ).start()
+        if self.style_windows:
+            threading.Thread(target=self._style_window, args=(proc.pid,), name="style", daemon=True).start()
+        return "started"
+
+    def build_desktop_args(self, dev: Device) -> list[str]:
+        name = dev.label.rsplit(" (", 1)[0]
+        # The main window keeps the audio; size limits would shrink the desktop.
+        base = [a for a in self.config.scrcpy_args if a != "--no-audio" and not a.startswith(("--max-size", "-m"))]
+        args = [
+            self.scrcpy, "-s", dev.serial,
+            f"--new-display={self.config.desktop_display}",
+            "--no-audio",
+            f"--window-title={name} desktop",
+            *base,
+        ]  # fmt: skip
+        if self.config.hide_phone_keyboard and (self.scrcpy_version is None or self.scrcpy_version >= (2, 4)):
+            args.append("--keyboard=uhid")
+        return args
 
     def session_pid(self, hw_id: str) -> int | None:
         with self._lock:
@@ -314,6 +374,9 @@ class Watcher:
                 if target in names:
                     return {"ok": True, "result": self.mirror(hw)}
             return {"ok": False, "error": f"no connected phone matches {target!r}"}
+        if cmd == "open_desktop":
+            result = self.open_desktop(str(msg.get("hw", "")))
+            return {"ok": result in ("started", "already open"), "result": result}
         if cmd == "quit":
             if self.on_quit is None:
                 return {"ok": False, "error": "quit is not supported here"}
@@ -498,6 +561,11 @@ class Watcher:
 
     def _reap(self) -> bool:
         changed = False
+        for hw, proc in list(self.desktops.items()):
+            code = proc.poll()
+            if code is not None:
+                del self.desktops[hw]
+                log.info("Desktop mode closed for %s (code %s)", hw, code)
         for hw, s in list(self.sessions.items()):
             code = s.proc.poll()
             if code is None:

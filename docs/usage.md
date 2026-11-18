@@ -5,7 +5,7 @@
 On Windows, left- or right-click the icon. On macOS and most Linux desktops, click it.
 
 ```
-Pixel 9 Pro: mirroring (USB)          >  Show window / Stop mirroring / Open shell / Disconnect Wi-Fi
+Pixel 9 Pro: mirroring (USB)          >  Show window / Stop mirroring / Open desktop mode / Open shell / Disconnect Wi-Fi
 Mirror Galaxy S24 (Wi-Fi)                 connected but no window yet: one click
 Connect and mirror Pixel 7 (Wi-Fi)        paired or seen before: connects, then mirrors
 Pixel 6: allow USB debugging on the phone needs your attention
@@ -36,6 +36,7 @@ A slim button bar next to each mirror window (on by default; **Settings → Show
 | Volume up / down, Power | The phone's side buttons. Power turns the phone screen off and on; the mirror keeps working |
 | Screenshot | Saves a PNG to `Pictures\scrcpy-autolaunch`. Right-click it to open that folder |
 | Force landscape | Same as the tray setting (see below) |
+| Desktop mode | Opens the phone's desktop in a second window (see below) |
 | Shell | Opens `adb shell` for the phone in your terminal app |
 | Content size slider | Drag down to fit more on the screen (see below) |
 
@@ -75,6 +76,14 @@ Rotates the phone to landscape while it's mirrored, including apps that ask for 
 Your rotation setting (auto-rotate, or locked to portrait) is saved first, and put back when the window closes, when you turn this off, or when you quit. If the phone is unplugged mid-session, it's put back the next time the phone connects.
 
 To rotate just once without locking, press scrcpy's own **Alt+R** in the mirror window.
+
+### Desktop mode
+
+Opens Android's desktop experience in its own window, like plugging the phone into a monitor: a taskbar, an app drawer, and apps in their big-screen layouts (Settings shows two panes, for example). It runs on a second, virtual screen, so the phone's own screen and the mirror window are left alone, and nothing on the phone has to be changed. Close the window to end it.
+
+- Needs scrcpy 3.0+. How desktop-like it looks depends on the Android version and launcher: Android 16+ shows a proper desktop, while older versions show the phone launcher on the second screen.
+- Size and density come from `desktop_display` in the config file (default `1920x1080/160`; a lower number means larger text).
+- Sound stays with the main mirror window (the desktop window opens without audio).
 
 ### Content size
 
@@ -128,6 +137,7 @@ Settings changed in the tray are saved immediately. You can also edit the file d
   "keep_wifi_connected": false,
   "content_scale": 100,
   "show_sidebar": true,
+  "desktop_display": "1920x1080/160",
   "audio": "off",
   "scrcpy_args": ["--stay-awake"],
   "wireless_extra_args": ["--max-size=1600", "--video-bit-rate=6M"],

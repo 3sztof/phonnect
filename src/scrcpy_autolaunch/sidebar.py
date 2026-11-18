@@ -48,6 +48,7 @@ BUTTONS = [
     None,
     ("screenshot", "\ue722", "Shot", "Screenshot, saved to Pictures\\scrcpy-autolaunch (right-click: open the folder)", None),
     ("landscape", "\ue7ad", "Land", "Force landscape", None),
+    ("desktop", "\ue7f4", "Desk", "Open desktop mode: the phone's desktop in a second, PC-sized window", None),
     ("shell", "\ue756", ">_", "Open an adb shell to the phone", None),
 ]
 SCALE_GLYPH, SCALE_TEXT = "\ue740", "Size"
@@ -408,6 +409,8 @@ class Sidebar:
                 self._background(lambda: self.shell.send(command))
             elif key == "screenshot":
                 self._screenshot()
+            elif key == "desktop":
+                self._open_desktop()
             elif key == "shell":
                 try:
                     open_terminal([self.adb, "-s", self.serial, "shell"])
@@ -426,6 +429,19 @@ class Sidebar:
             except Exception as exc:
                 self.root.after(0, self._say, "Failed", True)
                 self._report("warning", f"Screenshot failed: {exc}")
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _open_desktop(self):
+        self._say("…")
+
+        def work():
+            reply = self._request({"cmd": "open_desktop", "hw": self.hw})
+            if reply.get("ok"):
+                self.root.after(0, self._say, "")
+            else:
+                self.root.after(0, self._say, "Failed", True)
+                self._report("warning", f"Desktop mode: {reply.get('result') or reply.get('error')}")
 
         threading.Thread(target=work, daemon=True).start()
 

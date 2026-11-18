@@ -276,6 +276,7 @@ class TrayApp:
                 if IS_WINDOWS:
                     sub.append(Item("Show window", self._show(r.hw_id), default=True))
                 sub.append(Item("Stop mirroring", self._stop(r.hw_id)))
+                sub.append(Item("Open desktop mode", self._desktop(r.hw_id)))
                 sub.append(Item("Open shell", self._shell(r.hw_id)))
                 if r.wifi_serial:
                     sub.append(Item("Disconnect Wi-Fi", self._disconnect(r.wifi_serial)))
@@ -303,6 +304,15 @@ class TrayApp:
             pid = self.watcher.session_pid(hw_id) if self.watcher else None
             if pid is None or not focus_process_window(pid):
                 log.info("No scrcpy window found for %s", hw_id)
+
+        return action
+
+    def _desktop(self, hw_id: str):
+        def action(*_):
+            if self.watcher:
+                result = self.watcher.open_desktop(hw_id)
+                if result not in ("started", "already open"):
+                    self.notify(f"Desktop mode: {result}")
 
         return action
 

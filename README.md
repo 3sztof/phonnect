@@ -57,6 +57,7 @@ Your phones come first: **click a phone to see it.** The app connects over Wi-Fi
 | **Force landscape** | Rotates the phone while it's mirrored, and puts it back afterwards |
 | **Hide phone keyboard** | You type on the PC, and the phone's on-screen keyboard stays out of the way |
 | **Sidebar** | A button bar glued to the mirror window: back, home, recent apps, notifications, volume, power, screenshot, an adb shell, and a slider to fit more on the screen |
+| **Desktop mode** | The phone's desktop (taskbar, app drawer, big-screen apps) in a second, PC-sized window, as if plugged into a monitor |
 
 More in [docs/usage.md](docs/usage.md).
 
