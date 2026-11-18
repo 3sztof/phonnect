@@ -10,6 +10,36 @@
   <sub>Formerly <i>scrcpy-autolaunch</i>.</sub>
 </p>
 
+## Install
+
+**macOS / Linux**, in a terminal:
+
+```sh
+curl -fsSL https://github.com/3sztof/phonnect/releases/latest/download/install.sh | sh
+```
+
+**Windows**, in PowerShell:
+
+```powershell
+irm https://github.com/3sztof/phonnect/releases/latest/download/install.ps1 | iex
+```
+
+The installer walks you through it. First it shows what it will install and where (the app, its commands, start at login, a Start menu / Spotlight / app launcher entry), and what's already there. Nothing happens until you say yes. It asks separately before installing [uv](https://docs.astral.sh/uv/) (which installs Phonnect and the Python it needs), and **scrcpy + adb** with your package manager (winget, Homebrew, apt, pacman, …). Everything goes into your user account, and nothing on your phone is changed.
+
+**Updating:** when there's a new release, **Check for updates** in the tray menu becomes **Update Phonnect to X.Y.Z**. One click does it. Or run `phonnect update`.
+
+**Uninstalling:** the same way, with `uninstall.sh` / `uninstall.ps1` in place of `install`. It asks whether to keep your settings, and leaves uv, scrcpy and adb in place.
+
+Installing by hand, from a clone, and what goes where: [docs/installation.md](docs/installation.md).
+
+## Set up the phone (once)
+
+1. *Settings → About phone*: tap **Build number** 7 times to unlock Developer options.
+2. *Settings → System → Developer options*: turn on **USB debugging**.
+3. Plug the phone in and tap **Always allow from this computer**.
+
+That's it: the mirror window opens. **New to this?** Follow the [step-by-step phone setup guide](docs/phone-setup.md). It covers other phone brands, what each prompt means, Wi-Fi, and how to turn it all off again.
+
 ## Support
 
 If Phonnect saves you a few clicks every day, you can support its development:
@@ -69,36 +99,6 @@ Your phones come first: **click a phone to see it.** The app connects over Wi-Fi
 | **Desktop mode** | The phone's desktop (taskbar, app drawer, big-screen apps) in a second, PC-sized window, as if plugged into a monitor |
 
 More in [docs/usage.md](docs/usage.md).
-
-## Install
-
-**macOS / Linux**, in a terminal:
-
-```sh
-curl -fsSL https://github.com/3sztof/phonnect/releases/latest/download/install.sh | sh
-```
-
-**Windows**, in PowerShell:
-
-```powershell
-irm https://github.com/3sztof/phonnect/releases/latest/download/install.ps1 | iex
-```
-
-The installer walks you through it. First it shows what it will install and where (the app, its commands, start at login, a Start menu / Spotlight / app launcher entry), and what's already there. Nothing happens until you say yes. It asks separately before installing [uv](https://docs.astral.sh/uv/) (which installs Phonnect and the Python it needs), and **scrcpy + adb** with your package manager (winget, Homebrew, apt, pacman, …). Everything goes into your user account, and nothing on your phone is changed.
-
-**Updating:** when there's a new release, **Check for updates** in the tray menu becomes **Update Phonnect to X.Y.Z**. One click does it. Or run `phonnect update`.
-
-**Uninstalling:** the same way, with `uninstall.sh` / `uninstall.ps1` in place of `install`. It asks whether to keep your settings, and leaves uv, scrcpy and adb in place.
-
-Installing by hand, from a clone, and what goes where: [docs/installation.md](docs/installation.md).
-
-## Set up the phone (once)
-
-1. *Settings → About phone*: tap **Build number** 7 times to unlock Developer options.
-2. *Settings → System → Developer options*: turn on **USB debugging**.
-3. Plug the phone in and tap **Always allow from this computer**.
-
-That's it: the mirror window opens. **New to this?** Follow the [step-by-step phone setup guide](docs/phone-setup.md). It covers other phone brands, what each prompt means, Wi-Fi, and how to turn it all off again.
 
 ## Platforms
 
