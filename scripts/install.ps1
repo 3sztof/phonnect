@@ -34,7 +34,7 @@ $app = Join-Path $bin "scrcpy-autolaunch.exe"
 if (Test-Path $app) { & $app stop | Out-Host }
 
 Write-Host "Installing scrcpy-autolaunch from $Source ..."
-& $uv tool install --force --reinstall $Source
+& $uv tool install --force --reinstall --python ">=3.11" $Source
 Assert-Success "uv tool install"
 
 Write-Host ""

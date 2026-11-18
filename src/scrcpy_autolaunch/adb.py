@@ -133,3 +133,27 @@ class Adb:
 
     def mdns_services(self) -> list[MdnsService]:
         return parse_mdns(self.run("mdns", "services", timeout=15).stdout)
+
+    def wifi_ip(self, serial: str) -> str:
+        """The phone's Wi-Fi IPv4 address (works over USB too), or ''."""
+        try:
+            out = self.run("-s", serial, "shell", "ip", "-f", "inet", "addr", "show", "wlan0", timeout=10).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
+        m = re.search(r"inet (\d{1,3}(?:\.\d{1,3}){3})/", out)
+        return m.group(1) if m else ""
+
+    def tls_port(self, serial: str) -> int:
+        """Current Wireless debugging port, or 0 if off or not exposed (newer Android versions hide it)."""
+        try:
+            out = self.run("-s", serial, "shell", "getprop", "service.adb.tls.port", timeout=10).stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            return 0
+        return int(out) if out.isdigit() else 0
+
+    def wifi_debugging_enabled(self, serial: str) -> bool | None:
+        try:
+            out = self.run("-s", serial, "shell", "settings", "get", "global", "adb_wifi_enabled", timeout=10).stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        return {"1": True, "0": False}.get(out)

@@ -54,11 +54,13 @@ class Watcher:
         notify: Callable[[str], None] | None = None,
         popen: Callable[..., subprocess.Popen] = subprocess.Popen,
         clock: Callable[[], float] = time.monotonic,
+        known=None,
     ):
         self.config = config
         self.adb = adb
         self.scrcpy = scrcpy
         self.scrcpy_version = scrcpy_version
+        self.known = known  # wireless.KnownDevices, optional
         self._on_change = on_change or (lambda: None)
         self._notify = notify or (lambda msg: None)
         self._popen = popen
@@ -128,6 +130,10 @@ class Watcher:
                 log.info("Device connected: %s [%s]", dev.label, dev.serial)
                 if self._auto_enabled(dev):
                     self._launch(dev)
+                if self.known is not None:
+                    threading.Thread(
+                        target=self._learn, args=(dev, self.hw_ids[dev.serial]), name="learn", daemon=True
+                    ).start()
 
         if changed:
             self._on_change()
@@ -167,6 +173,10 @@ class Watcher:
         args = [self.scrcpy, "-s", dev.serial, *self.config.scrcpy_args]
         if dev.transport == WIRELESS:
             args += self.config.wireless_extra_args
+        user_set_keyboard = any(a.startswith("--keyboard") or a in ("-K", "--hid-keyboard") for a in args)
+        if self.config.hide_phone_keyboard and not user_set_keyboard:
+            if self.scrcpy_version is None or self.scrcpy_version >= (2, 4):  # --keyboard was added in 2.4
+                args.append("--keyboard=uhid")
         if self.scrcpy_version is not None and self.scrcpy_version < (2, 0):
             # scrcpy 1.x has no audio support (and no --no-audio flag).
             args = [a for a in args if not a.startswith(("--no-audio", "--audio"))]
@@ -220,6 +230,25 @@ class Watcher:
             if code != 0 and self._clock() - s.started < QUICK_FAIL_SECONDS:
                 self._notify(f"scrcpy failed for {s.device.label} (exit code {code}). See the log.")
         return changed
+
+    def _learn(self, dev: Device, hw: str) -> None:
+        """Remember the phone's Wi-Fi IP and debugging port for later reconnects."""
+        try:
+            ip = self.adb.wifi_ip(dev.serial)
+            port = self.adb.tls_port(dev.serial)
+            enabled = self.adb.wifi_debugging_enabled(dev.serial)
+            address = f"{ip}:{port}" if ip and port else ""
+            if not address and dev.transport == WIRELESS and ":" in dev.serial and "._" not in dev.serial:
+                address = dev.serial
+            self.known.remember(hw, model=dev.model, address=address, ip=ip)
+            if port:
+                wifi = f"on (port {port})"
+            else:
+                wifi = {True: "on", False: "off", None: "unknown"}[enabled]
+            log.info("Remembered %s: Wi-Fi IP %s, Wireless debugging %s", dev.label, ip or "unknown", wifi)
+            self._on_change()
+        except Exception:
+            log.exception("Could not read Wi-Fi details of %s", dev.serial)
 
     @staticmethod
     def _pump_output(proc: subprocess.Popen, serial: str) -> None:

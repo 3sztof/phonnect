@@ -23,7 +23,7 @@ Opens an [scrcpy](https://github.com/Genymobile/scrcpy) mirror window as soon as
   - Windows: `winget install Genymobile.scrcpy` (includes adb)
   - macOS: `brew install scrcpy && brew install --cask android-platform-tools`
   - Linux: `sudo apt install scrcpy adb` (or your distro's equivalent)
-- **[uv](https://docs.astral.sh/uv/)**: `just install` offers to install it if it's missing.
+- **[uv](https://docs.astral.sh/uv/)**: `just install` offers to install it if it's missing. Python 3.11 or newer is needed, and uv downloads it if your system doesn't have it.
 - **[just](https://github.com/casey/just)** (optional, only for the `just` commands): `uv tool install rust-just`, `winget install Casey.Just` or `brew install just`.
 
 ## Install
@@ -43,7 +43,7 @@ just install
 **Without just or a clone:**
 
 ```sh
-uv tool install git+https://github.com/3sztof/scrcpy-autolaunch
+uv tool install --python ">=3.11" git+https://github.com/3sztof/scrcpy-autolaunch
 scrcpy-autolaunch install
 ```
 
@@ -56,28 +56,40 @@ scrcpy-autolaunch install
 ### Wi-Fi (optional, Android 11+)
 
 1. Turn on *Developer options → Wireless debugging*. The phone and computer must be on the same network.
-2. In the tray menu, choose **Wireless → Pair new device…**. On the phone, tap **Pair device with pairing code** and type the IP:port and code it shows.
-3. The phone usually connects by itself after pairing. If it doesn't, use **Wireless → Find devices on network** or **Connect to address…**.
+2. In the tray menu, choose **Wi-Fi devices → Pair new device…**. On the phone, tap **Pair device with pairing code** and type the IP:port and code it shows. The app connects right after pairing.
+3. After that, the phone is listed under **Wi-Fi devices**. Click it to connect, or click it again to disconnect. **Manage Wi-Fi devices…** opens a window with the same list, a status for each phone and error details.
 4. To auto-launch over Wi-Fi as well, turn on **Auto-launch on Wi-Fi**.
+
+**Why connecting can fail, and how reconnecting works:** Android picks a **new port** every time Wireless debugging turns on, after a reboot or a network change. The **IP address** usually stays the same, depending on your router's DHCP. To make it permanent, give the phone a DHCP reservation. The app remembers each phone's IP, learned over USB or Wi-Fi, and reconnects in this order:
+1. **mDNS:** the phone advertises its current port. This is fast, but some networks and VPN adapters block it.
+2. **The last address that worked.**
+3. **A port scan** of the phone's last known IP for the new port. This takes about 10–15 s.
+
+A phone shown as `offline` usually means `adb connect` used the wrong port, for example the one from the pairing popup. Stale `offline` entries are cleaned up before each connect attempt.
 
 Notes on Wi-Fi:
 - Many phones share one radio between Bluetooth and 2.4 GHz Wi-Fi. If Bluetooth audio stutters while mirroring, use 5 GHz Wi-Fi or USB. Wi-Fi sessions use a lower resolution and bitrate by default (see `wireless_extra_args` below).
-- Android turns Wireless debugging off after a reboot and on network changes, and the port changes each time. Pairing is kept.
 - "Unplugging" over Wi-Fi means the phone drops off the network or you turn Wireless debugging off. After you close the window, use **Mirror now** to reopen it.
 
 ## Tray menu
 
+On Windows, left- or right-click the icon to open the menu.
+
 | Item | What it does |
 |---|---|
 | *(status lines)* | Connected phones, and whether each is being mirrored |
-| **Mirror now** | Opens a window for every connected phone that doesn't have one (also the default click action on Windows) |
+| **Mirror now** | Opens a window for every connected phone that doesn't have one |
 | Auto-launch on USB / Wi-Fi | Turns auto-launch on or off for each connection type |
-| Wireless → … | Pair, connect, find on network, disconnect |
+| Hide phone keyboard while mirroring | scrcpy acts as a physical keyboard (`--keyboard=uhid`), so the phone hides its on-screen keyboard and you type on the PC. Applies to the next window |
+| Wi-Fi devices → *phone* | Click to connect, click again to disconnect (checked = connected) |
+| Wi-Fi devices → Manage… / Pair… / Connect to address… / Disconnect all | |
 | Start at login | Adds or removes the start-at-login entry |
 | Open log / Open settings folder | |
 | Quit | Stops the watcher. Open scrcpy windows stay open |
 
 The icon is green when a phone is connected, grey while it waits for one, and red if scrcpy or adb wasn't found.
+
+**About the keyboard option:** Android hides the on-screen keyboard whenever a physical keyboard is attached, and that's what scrcpy pretends to be. Nothing changes on the phone permanently, and the on-screen keyboard comes back when the window closes. If PC typing comes out in the wrong layout, set it once on the phone: *Settings → System → Keyboard → Physical keyboard* (with a window open, press Alt+K to get there). Turn the option off if you'd rather type on the phone itself.
 
 ## Commands
 
@@ -90,8 +102,9 @@ The icon is green when a phone is connected, grey while it waits for one, and re
 | `just doctor` | `doctor` | Check scrcpy, adb, tray libraries and devices |
 | `just log` | `log [-n 30]` | Show the end of the log |
 | | `devices` | List adb devices |
-| | `pair [IP:PORT CODE]` / `connect [IP:PORT]` | Wireless pairing and connecting (a dialog opens if you leave out the arguments) |
-| | `discover [--connect]` / `disconnect [IP:PORT]` | Find phones with Wireless debugging on, or disconnect |
+| | `wifi` / `wifi --reconnect NAME\|ID\|all` | List paired and remembered phones, or reconnect (mDNS, then last address, then port scan) |
+| | `pair [IP:PORT CODE]` / `connect [IP:PORT]` | Wireless pairing and connecting (a window opens if you leave out the arguments) |
+| | `discover [--connect]` / `disconnect [IP:PORT]` | Show what mDNS sees, or disconnect |
 | | `run` | Watcher without a tray icon, logging to the console |
 
 ## Files
@@ -99,7 +112,7 @@ The icon is green when a phone is connected, grey while it waits for one, and re
 | | Windows | macOS | Linux |
 |---|---|---|---|
 | Settings | `%LOCALAPPDATA%\scrcpy-autolaunch\config.json` | `~/Library/Application Support/scrcpy-autolaunch/config.json` | `~/.config/scrcpy-autolaunch/config.json` |
-| Log, lock | same folder | same folder | `~/.local/state/scrcpy-autolaunch/` |
+| Log, lock, remembered Wi-Fi phones | same folder | same folder | `~/.local/state/scrcpy-autolaunch/` |
 | Start at login | `shell:startup\scrcpy-autolaunch.lnk` | `~/Library/LaunchAgents/io.github.3sztof.scrcpy-autolaunch.plist` | `~/.config/autostart/scrcpy-autolaunch.desktop` |
 | App | `uv tool dir` | `uv tool dir` | `uv tool dir` |
 
@@ -109,6 +122,7 @@ The icon is green when a phone is connected, grey while it waits for one, and re
 {
   "auto_usb": true,
   "auto_wireless": false,
+  "hide_phone_keyboard": true,
   "scrcpy_args": ["--no-audio", "--stay-awake"],
   "wireless_extra_args": ["--max-size=1600", "--video-bit-rate=6M"],
   "poll_interval": 1.0,

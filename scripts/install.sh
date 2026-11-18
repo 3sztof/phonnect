@@ -30,7 +30,7 @@ APP="$BIN/scrcpy-autolaunch"
 [ -x "$APP" ] && "$APP" stop || true
 
 echo "Installing scrcpy-autolaunch from $SOURCE ..."
-"$UV" tool install --force --reinstall "$SOURCE"
+"$UV" tool install --force --reinstall --python ">=3.11" "$SOURCE"
 
 echo
 "$APP" doctor || true

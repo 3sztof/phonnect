@@ -72,7 +72,19 @@ def test_launches_on_usb_connect():
     h = Harness()
     h.tick(USB_PHONE)
     assert len(h.procs) == 1
-    assert h.procs[0].args == ["scrcpy", "-s", USB_PHONE.serial, "--no-audio", "--stay-awake"]
+    assert h.procs[0].args == [
+        "scrcpy", "-s", USB_PHONE.serial, "--no-audio", "--stay-awake", "--keyboard=uhid"
+    ]
+
+
+def test_keyboard_toggle_and_user_override():
+    h = Harness(hide_phone_keyboard=False)
+    assert not any(a.startswith("--keyboard") for a in h.watcher.build_args(USB_PHONE))
+    h = Harness(scrcpy_args=["--no-audio", "--keyboard=sdk"])
+    assert [a for a in h.watcher.build_args(USB_PHONE) if a.startswith("--keyboard")] == ["--keyboard=sdk"]
+    h = Harness()
+    h.watcher.scrcpy_version = (2, 3)
+    assert "--keyboard=uhid" not in h.watcher.build_args(USB_PHONE)
 
 
 def test_closing_window_does_not_relaunch_until_replug():
@@ -102,7 +114,7 @@ def test_wireless_off_by_default_and_gets_extra_args_when_on():
     assert h.procs == []
     h = Harness(auto_wireless=True)
     h.tick(WIFI_OTHER_PHONE)
-    assert h.procs[0].args[-2:] == ["--max-size=1600", "--video-bit-rate=6M"]
+    assert h.procs[0].args[-3:] == ["--max-size=1600", "--video-bit-rate=6M", "--keyboard=uhid"]
 
 
 def test_same_phone_on_usb_and_wifi_gets_one_window_via_usb():

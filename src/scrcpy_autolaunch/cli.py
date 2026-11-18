@@ -107,7 +107,7 @@ def cmd_start(args) -> int:
     spawn_detached(cmd)
     for _ in range(50):
         time.sleep(0.1)
-        if (pid := running_pid()) is not None:
+        if (pid := running_pid()) is not None and pid > 0:
             print(f"Started (pid {pid}). Look for the phone icon in the tray / menu bar.")
             return 0
     print(f"The tray app did not start. Check the log: {paths.log_file()}")
@@ -239,10 +239,47 @@ def cmd_pair(args) -> int:
 def cmd_connect(args) -> int:
     adb = require_adb(Config.load())
     if not args.address:
-        return _dialog(adb, "connect")
-    ok, out = adb.connect(args.address)
+        return _dialog(adb, "devices")
+    from scrcpy_autolaunch.wireless import KnownDevices, connect_verified, drop_offline, split_address
+
+    if split_address(args.address):
+        drop_offline(adb, split_address(args.address)[0])
+    ok, out = connect_verified(adb, args.address)
     print(out)
+    if ok:
+        KnownDevices().remember(adb.hardware_id(args.address), address=args.address)
     return 0 if ok else 1
+
+
+def cmd_wifi(args) -> int:
+    """List remembered/paired phones, or reconnect to one."""
+    from scrcpy_autolaunch.wireless import KnownDevices, reconnect, status_of
+
+    adb = require_adb(Config.load())
+    known = KnownDevices()
+    devices = known.all()
+    if not args.reconnect:
+        current = adb.devices()
+        if not devices:
+            print("No paired or remembered phones. Pair one with: scrcpy-autolaunch pair")
+        for d in devices:
+            print(f"{d.label:20} {status_of(d, current):16} last={d.address or '-':22} ip={d.ip or '-':16} id={d.hw_id}")
+        return 0
+    wanted = args.reconnect.lower()
+    matches = [d for d in devices if wanted in (d.hw_id.lower(), d.label.lower()) or wanted == "all"]
+    if not matches:
+        print(f"No remembered phone matches '{args.reconnect}'.")
+        return 1
+    rc = 0
+    for d in matches:
+        ok, result = reconnect(adb, d, progress=print)
+        print(f"{d.label}: {'connected at ' + result if ok else 'failed'}")
+        if ok:
+            known.remember(d.hw_id, address=result)
+        else:
+            print(result)
+            rc = 1
+    return rc
 
 
 def cmd_disconnect(args) -> int:
@@ -278,13 +315,13 @@ def cmd_log(args) -> int:
 
 
 def cmd_dialog(args) -> int:
-    return _dialog(require_adb(Config.load()), args.kind)
+    return _dialog(require_adb(Config.load()), args.kind, args.message)
 
 
-def _dialog(adb: Adb, kind: str) -> int:
+def _dialog(adb: Adb, kind: str, message: str = "") -> int:
     from scrcpy_autolaunch.dialogs import run_dialog
 
-    code = run_dialog(kind, adb)
+    code = run_dialog(kind, adb, message)
     if code == 3 and sys.stderr is not None:
         print("Tk is not available; pass the address on the command line instead.", file=sys.stderr)
     return code
@@ -322,8 +359,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp = add("pair", cmd_pair, "pair a phone for wireless debugging (opens a dialog without arguments)")
     sp.add_argument("address", nargs="?", help="IP:PORT from 'Pair device with pairing code'")
     sp.add_argument("code", nargs="?", help="6-digit pairing code")
-    add("connect", cmd_connect, "connect to a paired phone over Wi-Fi").add_argument(
+    add("connect", cmd_connect, "connect over Wi-Fi to IP:PORT (opens the Wi-Fi devices window without arguments)").add_argument(
         "address", nargs="?", help="IP:PORT shown on the Wireless debugging screen"
+    )
+    add("wifi", cmd_wifi, "list paired / remembered phones, or reconnect to one").add_argument(
+        "--reconnect", metavar="NAME|ID|all", help="reconnect (tries mDNS, last address, then a port scan)"
     )
     add("disconnect", cmd_disconnect, "disconnect Wi-Fi devices").add_argument(
         "address", nargs="?", help="only this IP:PORT (default: all)"
@@ -334,7 +374,9 @@ def build_parser() -> argparse.ArgumentParser:
     add("log", cmd_log, "print the end of the log").add_argument(
         "-n", "--lines", type=int, default=30, help="number of lines (default 30)"
     )
-    add("_dialog", cmd_dialog, argparse.SUPPRESS).add_argument("kind", choices=["pair", "connect"])
+    sp = add("_dialog", cmd_dialog, argparse.SUPPRESS)
+    sp.add_argument("kind", choices=["pair", "connect", "devices"])
+    sp.add_argument("--message", default="")
     # Hide the internal command from --help.
     sub._choices_actions = [a for a in sub._choices_actions if a.dest != "_dialog"]
     return p

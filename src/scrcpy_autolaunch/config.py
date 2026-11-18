@@ -16,6 +16,9 @@ log = logging.getLogger(__name__)
 class Config:
     auto_usb: bool = True
     auto_wireless: bool = False
+    # Adds --keyboard=uhid: scrcpy acts as a physical keyboard, so Android hides
+    # the on-screen keyboard while mirroring. Nothing changes on the phone permanently.
+    hide_phone_keyboard: bool = True
     # --no-audio keeps audio playing on the phone; scrcpy 2.0+ would otherwise
     # capture it (and silence it on the device, e.g. a Bluetooth amp).
     scrcpy_args: list[str] = field(default_factory=lambda: ["--no-audio", "--stay-awake"])

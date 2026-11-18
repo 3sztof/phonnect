@@ -10,8 +10,9 @@ import threading
 from scrcpy_autolaunch import autostart, paths
 from scrcpy_autolaunch.adb import WIRELESS, Adb
 from scrcpy_autolaunch.config import Config
-from scrcpy_autolaunch.osutil import IS_MAC, NO_WINDOW, gui_python, open_path
+from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, gui_python, open_path
 from scrcpy_autolaunch.watcher import Watcher
+from scrcpy_autolaunch.wireless import KnownDevices, reconnect, status_of, wireless_serial_for
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,21 @@ def make_icon(color: tuple[int, int, int, int]):
     return img
 
 
+def icon_class(pystray):
+    """On Windows, open the menu on left click too (pystray only does right click)."""
+    if not IS_WINDOWS:
+        return pystray.Icon  # macOS and most Linux trays already open the menu on left click
+    from pystray import _win32
+
+    class LeftClickMenuIcon(_win32.Icon):
+        def _on_notify(self, wparam, lparam):
+            if lparam == _win32.win32.WM_LBUTTONUP:
+                lparam = _win32.win32.WM_RBUTTONUP
+            super()._on_notify(wparam, lparam)
+
+    return LeftClickMenuIcon
+
+
 class TrayApp:
     def __init__(self, config: Config, adb: Adb | None, scrcpy: str | None, version, problem: str | None):
         import pystray
@@ -41,12 +57,14 @@ class TrayApp:
         self.config = config
         self.adb = adb
         self.problem = problem
+        self.known = KnownDevices()
+        self._connecting: set[str] = set()
         self.watcher = (
-            Watcher(config, adb, scrcpy, version, on_change=self.refresh, notify=self.notify)
+            Watcher(config, adb, scrcpy, version, on_change=self.refresh, notify=self.notify, known=self.known)
             if adb and scrcpy
             else None
         )
-        self.icon = pystray.Icon(
+        self.icon = icon_class(pystray)(
             "scrcpy-autolaunch",
             icon=make_icon(RED if problem else GREY),
             title="scrcpy-autolaunch",
@@ -124,13 +142,13 @@ class TrayApp:
             "Auto-launch on Wi-Fi", self._toggle("auto_wireless"), checked=lambda _: self.config.auto_wireless
         )
         yield Item(
-            "Wireless",
-            Menu(
-                Item("Pair new device…", lambda *_: self._dialog("pair")),
-                Item("Connect to address…", lambda *_: self._dialog("connect")),
-                Item("Find devices on network", lambda *_: self._background(self._discover)),
-                Item("Disconnect all Wi-Fi devices", lambda *_: self._background(self._disconnect)),
-            ),
+            "Hide phone keyboard while mirroring",
+            self._toggle("hide_phone_keyboard"),
+            checked=lambda _: self.config.hide_phone_keyboard,
+        )
+        yield Item(
+            "Wi-Fi devices",
+            Menu(self._wifi_items),
             enabled=self.adb is not None,
         )
         yield Menu.SEPARATOR
@@ -138,6 +156,66 @@ class TrayApp:
         yield Item("Open log", lambda *_: self._open(paths.log_file()))
         yield Item("Open settings folder", lambda *_: self._open(paths.config_dir()))
         yield Item("Quit", self.quit)
+
+    def _wifi_items(self):
+        Item, Menu = self.pystray.MenuItem, self.pystray.Menu
+        devices = [d for d, _ in self.watcher.snapshot()] if self.watcher else []
+        known = self.known.all()
+        for k in known:
+            if k.hw_id in self._connecting:
+                text = f"{k.label}: connecting…"
+            else:
+                text = f"{k.label}: {status_of(k, devices)}"
+            yield Item(text, self._wifi_toggle(k.hw_id), checked=self._wifi_checked(k.hw_id))
+        if not known:
+            yield Item("No paired phones yet", None, enabled=False)
+        yield Menu.SEPARATOR
+        yield Item("Manage Wi-Fi devices…", lambda *_: self._dialog("devices"))
+        yield Item("Pair new device…", lambda *_: self._dialog("pair"))
+        yield Item("Connect to address…", lambda *_: self._dialog("connect"))
+        yield Item("Disconnect all Wi-Fi devices", lambda *_: self._background(self._disconnect))
+
+    def _wifi_checked(self, hw_id: str):
+        def checked(_item):
+            k = self.known.get(hw_id)
+            devices = [d for d, _ in self.watcher.snapshot()] if self.watcher else []
+            return k is not None and status_of(k, devices) == "Wi-Fi"
+
+        return checked
+
+    def _wifi_toggle(self, hw_id: str):
+        """Click a phone: connect if it isn't connected over Wi-Fi, disconnect if it is."""
+
+        def action(*_):
+            k = self.known.get(hw_id)
+            if k is None or self.adb is None or hw_id in self._connecting:
+                return
+            serial = wireless_serial_for(k, self.adb.devices())
+            if serial is not None and status_of(k, self.adb.devices()) == "Wi-Fi":
+                log.info("Disconnecting %s (%s)", k.label, serial)
+                self._background(lambda: (self.adb.disconnect(serial), self.refresh()))
+                return
+
+            def work():
+                self._connecting.add(hw_id)
+                self.refresh()
+                try:
+                    ok, result = reconnect(self.adb, k, progress=lambda m: log.info("%s", m))
+                finally:
+                    self._connecting.discard(hw_id)
+                if ok:
+                    self.known.remember(hw_id, address=result)
+                    log.info("Connected to %s at %s", k.label, result)
+                    self.notify(f"Connected to {k.label} over Wi-Fi.")
+                else:
+                    log.warning("Could not connect to %s:\n%s", k.label, result)
+                    # Notifications are easy to miss; show the details in the window.
+                    self._dialog("devices", f"Could not connect to {k.label}.\n{result}")
+                self.refresh()
+
+            self._background(work)
+
+        return action
 
     # ── actions ──────────────────────────────────────────────────────────────
 
@@ -177,8 +255,10 @@ class TrayApp:
         except Exception as exc:
             self.notify(f"Could not open {path}: {exc}")
 
-    def _dialog(self, kind: str) -> None:
+    def _dialog(self, kind: str, message: str = "") -> None:
         cmd = [gui_python(), "-m", "scrcpy_autolaunch", "_dialog", kind]
+        if message:
+            cmd += ["--message", message]
 
         def wait():
             try:
@@ -189,25 +269,11 @@ class TrayApp:
             if code == 3:
                 self.notify(
                     "Tk is not available for this Python. Use the command line instead: "
-                    f"scrcpy-autolaunch {kind} IP:PORT{' CODE' if kind == 'pair' else ''}"
+                    "scrcpy-autolaunch pair IP:PORT CODE / connect IP:PORT / wifi"
                 )
+            self.refresh()  # the window may have paired or connected a phone
 
         self._background(wait)
-
-    def _discover(self) -> None:
-        assert self.adb is not None
-        try:
-            services = [s for s in self.adb.mdns_services() if "tls-connect" in s.service]
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            self.notify(f"Network search failed: {exc}")
-            return
-        if not services:
-            self.notify("No phones found. Turn on Wireless debugging on the phone (and pair it first).")
-            return
-        for s in services:
-            ok, out = self.adb.connect(s.address)
-            log.info("Connect %s (%s): %s", s.address, s.name, out)
-        self.notify(f"Found {len(services)} phone(s) on the network; see the log for details.")
 
     def _disconnect(self) -> None:
         assert self.adb is not None
