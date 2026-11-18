@@ -144,6 +144,15 @@ def cmd_start(args) -> int:
     pid = running_pid()
     if pid is not None:
         print(f"Already running (pid {pid}).")
+        # Opened again (app menu, Spotlight, a launcher): let the running copy show itself.
+        from phonnect import control
+
+        endpoint = control.read_endpoint()
+        if endpoint is not None:
+            try:
+                control.request(*endpoint, {"cmd": "show"}, timeout=3)
+            except OSError:
+                pass
         return 0
     cmd = autostart.tray_command()
     spawn_detached(cmd)

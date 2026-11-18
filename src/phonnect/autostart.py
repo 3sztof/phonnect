@@ -34,6 +34,17 @@ def tray_command() -> list[str]:
     return [gui_python(), "-m", "phonnect", "tray"]
 
 
+def start_command() -> list[str]:
+    """`phonnect start`: starts the tray in the background (or shows it, if it runs) and returns."""
+    sibling = Path(sys.executable).parent / ("phonnect.exe" if IS_WINDOWS else "phonnect")
+    if sibling.is_file():
+        return [str(sibling), "start"]
+    found = shutil.which("phonnect")
+    if found:
+        return [found, "start"]
+    return [sys.executable, "-m", "phonnect", "start"]
+
+
 def entry_path() -> Path:
     home = Path.home()
     if IS_WINDOWS:
@@ -134,14 +145,17 @@ def menu_entry_path() -> Path:
 
 def add_menu_entry(cmd: list[str] | None = None) -> Path:
     path = menu_entry_path()
-    cmd = cmd or tray_command()
     path.parent.mkdir(parents=True, exist_ok=True)
     if IS_WINDOWS:
-        _write_windows_shortcut(path, cmd, _icon_file(".ico"))
+        _write_windows_shortcut(path, cmd or tray_command(), _icon_file(".ico"))
     elif IS_MAC:
-        write_mac_app(path, cmd)
+        # The app only starts the tray and exits. If its own process became the tray, macOS
+        # would treat the tray as the app it opened, and end it seconds later.
+        write_mac_app(path, cmd or start_command())
     else:
-        path.write_text(linux_desktop_entry(cmd, autostart=False, icon=_icon_file(".png")), encoding="utf-8")
+        path.write_text(
+            linux_desktop_entry(cmd or tray_command(), autostart=False, icon=_icon_file(".png")), encoding="utf-8"
+        )
     return path
 
 

@@ -40,12 +40,17 @@ def test_linux_menu_entry_is_not_an_autostart_entry():
 
 def test_mac_app_bundle_starts_the_tray_without_a_dock_icon(tmp_path):
     app = tmp_path / "Phonnect.app"
-    autostart.write_mac_app(app, ["/Users/a b/.local/bin/phonnect-tray"])
+    autostart.write_mac_app(app, ["/Users/a b/.local/bin/phonnect", "start"])
     info = plistlib.loads((app / "Contents" / "Info.plist").read_bytes())
     assert info["CFBundleExecutable"] == "Phonnect" and info["LSUIElement"] is True
     launcher = (app / "Contents" / "MacOS" / "Phonnect").read_text()
-    assert launcher.startswith("#!/bin/sh\nexec '/Users/a b/.local/bin/phonnect-tray'")
+    assert launcher.startswith("#!/bin/sh\nexec '/Users/a b/.local/bin/phonnect' start")
     assert (app / "Contents" / "Resources" / "Phonnect.icns").stat().st_size > 1000
+
+
+def test_mac_app_starts_the_tray_in_the_background_instead_of_becoming_it():
+    # If the app's own process became the tray, macOS would end it seconds after opening.
+    assert autostart.start_command()[-1] == "start"
 
 
 def test_entries_are_refreshed_once_per_version(monkeypatch):
