@@ -46,6 +46,29 @@ def test_update_is_offered_only_for_newer_releases():
     assert updates.scrcpy_update(updates.Releases(scrcpy="3.4"), None) is None
 
 
+def test_update_check_rejects_tags_that_arent_plain_versions():
+    # A tag ends up in the updater's command line: anything but digits and dots is refused.
+    assert updates.strict_version("v1.2.3") == "1.2.3"
+    assert updates.strict_version("0.10") == "0.10"
+    for bad in ("v9.9.9'; Remove-Item x; '", "1.2.3-rc1", "1.2.3;", "$(evil)", "1", "", None, 5):
+        assert updates.strict_version(bad) is None, bad
+
+
+def test_updater_refuses_a_bad_version():
+    import pytest
+
+    with pytest.raises(ValueError):
+        updates.updater_command("9.9.9'; calc; '")
+
+
+def test_a_tampered_cache_is_ignored():
+    updates.cache_file().parent.mkdir(parents=True, exist_ok=True)
+    updates.cache_file().write_text(json.dumps({"phonnect": "9.9.9'; calc; '", "scrcpy": "4.0", "checked_at": 1}))
+    cached = updates.load_cache()
+    assert cached.phonnect is None and cached.scrcpy == "4.0"
+    assert updates.phonnect_update(cached) is None
+
+
 def test_updater_runs_that_releases_installer_in_update_mode():
     cmd = " ".join(updates.updater_command("1.2.3"))
     if IS_WINDOWS:

@@ -93,11 +93,18 @@ To rotate just once without locking, press scrcpy's own **Alt+R** in the mirror 
 
 ### Desktop mode
 
-Opens Android's desktop experience in its own window, like plugging the phone into a monitor: a taskbar, an app drawer, and apps in their big-screen layouts (Settings shows two panes, for example). It runs on a second, virtual screen, so the phone's own screen and the mirror window are left alone, and nothing on the phone has to be changed. Close the window to end it.
+Opens Android's desktop experience in its own window, like plugging the phone into a monitor: a taskbar, an app drawer, and apps in resizable windows. It runs on a second screen, so the mirror window keeps showing the phone's own screen. Close the window to end it.
 
-- Needs scrcpy 3.0+. How desktop-like it looks depends on the Android version and launcher: Android 16+ shows a proper desktop, while older versions show the phone launcher on the second screen.
-- Size and density come from `desktop_display` in the config file (default `1920x1080/160`; a lower number means larger text).
-- Sound stays with the main mirror window (the desktop window opens without audio).
+**How the second screen is made.** On current Pixels (Android 16 and 17), the desktop's taskbar can't open apps on scrcpy's own virtual screens ([scrcpy #6699](https://github.com/Genymobile/scrcpy/issues/6699), [#7048](https://github.com/Genymobile/scrcpy/issues/7048)). So Phonnect turns on Android's **simulated second screen** (*Developer options → Simulate secondary displays*) while the desktop window is open, which works. While it's on:
+
+- **the phone shows a small, semi-transparent preview of the desktop.** That's how Android shows a simulated screen; it can't be hidden. You can't use it, but it does no harm.
+- the phone may not accept your PIN until the desktop window is closed.
+
+Phonnect saves the setting first and removes the simulated screen when the desktop window closes, when you quit, or (if the phone was gone at that moment) the next time it connects. If the simulated screen doesn't appear, Phonnect falls back to scrcpy's virtual screen. Set `"desktop_method": "virtual"` in the config file to always use that: no preview on the phone, but on current Pixels apps can't be opened from the taskbar.
+
+- Needs scrcpy 3.0+, and on Pixels *Developer options → Enable desktop experience features* (then restart the phone). Without it you get the phone's launcher on the second screen instead of a desktop.
+- Size and density come from `desktop_display` in the config file (default `1920x1080/160`; a higher number means larger text and icons, e.g. `1920x1080/240`).
+- Sound stays with the main mirror window (the desktop window opens without audio). Content with copy protection (some video apps) may show black there.
 
 ### Content size
 
@@ -173,6 +180,7 @@ Settings changed in the tray are saved immediately. You can also edit the file d
   "check_updates": true,
   "wifi_port_scan": true,
   "desktop_display": "1920x1080/160",
+  "desktop_method": "overlay",
   "mouse_buttons": {"right": "app", "middle": "home", "back": "back", "forward": "recents"},
   "audio": "off",
   "scrcpy_args": ["--stay-awake"],

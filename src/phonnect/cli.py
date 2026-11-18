@@ -47,10 +47,11 @@ def attach_helpers(watcher):
     """Give a watcher what the tray and `run` both need: setting keepers, the
     control server for sidebars, and themed scrcpy title bars."""
     from phonnect.control import ControlServer
-    from phonnect.phone_state import DensityKeeper, RotationKeeper
+    from phonnect.phone_state import DensityKeeper, OverlayDisplayKeeper, RotationKeeper
 
     watcher.rotation = RotationKeeper(watcher.adb, watcher.online_serial)
     watcher.density = DensityKeeper(watcher.adb, watcher.online_serial)
+    watcher.overlay = OverlayDisplayKeeper(watcher.adb, watcher.online_serial)
     try:
         server = ControlServer(watcher.handle_control).start()
         watcher.control = (server.address, server.token)

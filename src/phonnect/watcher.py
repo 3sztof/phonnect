@@ -61,6 +61,12 @@ class TrackedWindow:
 
 
 TEXTURE_RE = re.compile(r"Texture: (\d+)x(\d+)")
+DISPLAY_RE = re.compile(r"--display-id=(\d+)\s+\((\d+x\d+)\)")
+
+
+def parse_display_list(text: str) -> dict[int, str]:
+    """`scrcpy --list-displays` output -> {display id: "WIDTHxHEIGHT"}."""
+    return {int(m.group(1)): m.group(2) for m in DISPLAY_RE.finditer(text)}
 
 
 class Watcher:
@@ -83,6 +89,7 @@ class Watcher:
         self.known = known  # wireless.KnownDevices, optional
         self.rotation = None  # phone_state.RotationKeeper, optional (set by the tray)
         self.density = None  # phone_state.DensityKeeper, optional (set by the tray)
+        self.overlay = None  # phone_state.OverlayDisplayKeeper, optional: desktop mode's second screen
         self.windows = None  # window_memory.WindowMemory, optional (set by the tray; Windows only)
         self.control: tuple[str, str] | None = None  # (address, token) of the control server
         self.style_windows = False  # match scrcpy's title bar to the OS theme (set by the tray)
@@ -100,6 +107,7 @@ class Watcher:
         self.sessions: dict[str, Session] = {}
         # Desktop mode windows (a second scrcpy on a virtual display), per phone.
         self.desktops: dict[str, subprocess.Popen] = {}
+        self._desktop_opening: set[str] = set()
         # Windows whose place is remembered, by scrcpy's pid.
         self._tracked: dict[int, TrackedWindow] = {}
         self._warned_usb_off: set[str] = set()
@@ -224,8 +232,24 @@ class Watcher:
                     return "started" if ok else "could not start scrcpy"
         return "not connected"
 
+    def open_desktop_and_report(self, hw_id: str) -> str:
+        """open_desktop() for callers that don't wait: problems become a notification."""
+        try:
+            result = self.open_desktop(hw_id)
+        except Exception as exc:
+            log.exception("Desktop mode failed")
+            result = f"failed: {exc}"
+        if result not in ("started", "already open", "already opening"):
+            self._notify(f"Desktop mode: {result}")
+        return result
+
     def open_desktop(self, hw_id: str) -> str:
-        """Open the phone's desktop mode on a second, PC-sized virtual screen."""
+        """Open the phone's desktop mode in a second, PC-sized window.
+
+        Preferred: a simulated second screen (overlay display), on which Android's desktop can
+        launch apps. Fallback (or desktop_method "virtual"): scrcpy's own virtual display, where
+        on current Pixels the taskbar shows but can't open apps.
+        """
         from phonnect.osutil import focus_process_window
 
         with self._lock:
@@ -233,13 +257,20 @@ class Watcher:
             if existing is not None and existing.poll() is None:
                 focus_process_window(existing.pid)
                 return "already open"
+            if hw_id in self._desktop_opening:
+                return "already opening"
             if self.scrcpy_version is not None and self.scrcpy_version < (3, 0):
                 return "desktop mode needs scrcpy 3.0 or newer"
             serial = self.online_serial(hw_id)
             if serial is None:
                 return "not connected"
             dev = self.devices[serial]
-            args = self.build_desktop_args(dev)
+            self._desktop_opening.add(hw_id)
+        try:
+            display_id = None
+            if self.config.desktop_method != "virtual" and self.overlay is not None:
+                display_id = self._show_overlay_display(hw_id, serial)
+            args = self.build_desktop_args(dev, display_id)
             child_env = dict(os.environ)
             child_env["ADB"] = self.adb.path
             try:
@@ -256,9 +287,15 @@ class Watcher:
                 )
             except OSError as exc:
                 log.error("Could not start desktop mode: %s", exc)
+                if display_id is not None:
+                    self.overlay.restore(hw_id)
                 return f"could not start scrcpy: {exc}"
-            self.desktops[hw_id] = proc
+            with self._lock:
+                self.desktops[hw_id] = proc
             log.info("Desktop mode started for %s (pid %s): %s", dev.label, proc.pid, " ".join(args[1:]))
+        finally:
+            with self._lock:
+                self._desktop_opening.discard(hw_id)
         tracked = self._track(self.windows.key(hw_id, desktop=True), proc) if self.windows else None
         if proc.stdout is not None:
             threading.Thread(
@@ -271,13 +308,60 @@ class Watcher:
             threading.Thread(target=self._style_window, args=(proc.pid,), name="style", daemon=True).start()
         return "started"
 
-    def build_desktop_args(self, dev: Device) -> list[str]:
+    def _show_overlay_display(self, hw_id: str, serial: str) -> int | None:
+        """Turn on the simulated second screen and return its display id, or None (then: fallback)."""
+        size = self.config.desktop_display.split("/", 1)[0]
+        before = self._display_ids(serial)
+        if before is None:
+            return None
+        assert self.overlay is not None
+        self.overlay.show(hw_id, self.config.desktop_display)
+        self.overlay.flush()
+        deadline = self._clock() + 8
+        while self._clock() < deadline:
+            now = self._display_ids(serial) or {}
+            new = [d for d, s in now.items() if d not in before and s == size] or [d for d in now if d not in before]
+            if new:
+                log.info("Simulated second screen for %s: display %s (%s)", serial, new[0], now[new[0]])
+                self._notify(
+                    "Desktop mode: while it's open, your phone shows a small preview of the desktop. "
+                    "That's normal, and it goes away when you close the desktop window."
+                )
+                return new[0]
+            time.sleep(0.5)
+        log.warning("The simulated second screen didn't appear on %s; using scrcpy's virtual display", serial)
+        self.overlay.restore(hw_id)
+        return None
+
+    def _display_ids(self, serial: str) -> dict[int, str] | None:
+        """The phone's displays as {id: "WIDTHxHEIGHT"}, from `scrcpy --list-displays`."""
+        try:
+            r = subprocess.run(
+                [self.scrcpy, "-s", serial, "--list-displays"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                stdin=subprocess.DEVNULL,
+                timeout=20,
+                env=dict(os.environ, ADB=self.adb.path),
+                creationflags=NO_WINDOW,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            log.warning("Could not list the displays of %s: %s", serial, exc)
+            return None
+        return parse_display_list(r.stdout + r.stderr)
+
+    def build_desktop_args(self, dev: Device, display_id: int | None = None) -> list[str]:
         name = dev.label.rsplit(" (", 1)[0]
         # The main window keeps the audio; size limits would shrink the desktop.
         base = [a for a in self.config.scrcpy_args if a != "--no-audio" and not a.startswith(("--max-size", "-m"))]
+        screen = (
+            f"--display-id={display_id}" if display_id is not None else f"--new-display={self.config.desktop_display}"
+        )
         args = [
             self.scrcpy, "-s", dev.serial,
-            f"--new-display={self.config.desktop_display}",
+            screen,
             "--no-audio",
             f"--window-title={name} desktop",
             *base,
@@ -356,12 +440,22 @@ class Watcher:
                 self.rotation.restore(hw)
 
     def restore_all_phone_settings(self) -> None:
-        """On quit: put back everything we changed on any phone, and close sidebars."""
+        """On quit: put back everything we changed on any phone, and close sidebars.
+
+        Desktop windows close too: their simulated second screen is removed from the phone.
+        """
         with self._lock:
             sessions = list(self.sessions.values())
+            desktops = list(self.desktops.items())
+            self.desktops.clear()
         for s in sessions:
             self._close_sidebar(s)
             self._restore_phone_settings(s.hw_id)
+        for hw, proc in desktops:
+            if proc.poll() is None:
+                proc.terminate()
+            if self.overlay is not None:
+                self.overlay.restore(hw)
         for k in self._keepers():
             k.flush()
 
@@ -431,8 +525,10 @@ class Watcher:
                     return {"ok": True, "result": self.mirror(hw)}
             return {"ok": False, "error": f"no connected phone matches {target!r}"}
         if cmd == "open_desktop":
-            result = self.open_desktop(str(msg.get("hw", "")))
-            return {"ok": result in ("started", "already open"), "result": result}
+            hw = str(msg.get("hw", ""))
+            # Setting up the second screen takes a few seconds; don't keep the caller waiting.
+            threading.Thread(target=self.open_desktop_and_report, args=(hw,), name="desktop", daemon=True).start()
+            return {"ok": True, "result": "opening"}
         if cmd == "show":
             if self.on_show is None:
                 return {"ok": False, "error": "show is not supported here"}
@@ -465,7 +561,7 @@ class Watcher:
             return [hw for hw, s in self.sessions.items() if s.proc.poll() is None]
 
     def _keepers(self) -> list:
-        return [k for k in (self.rotation, self.density) if k is not None]
+        return [k for k in (self.rotation, self.density, self.overlay) if k is not None]
 
     def _apply_phone_settings(self, hw: str) -> None:
         if self.config.force_landscape and self.rotation is not None:
@@ -474,7 +570,11 @@ class Watcher:
             self.density.set_scale(hw, self.config.content_scale)
 
     def _restore_phone_settings(self, hw: str) -> None:
+        desktop = self.desktops.get(hw)
+        desktop_open = desktop is not None and desktop.poll() is None
         for k in self._keepers():
+            if k is self.overlay and (desktop_open or hw in self._desktop_opening):
+                continue  # the desktop window still needs its second screen
             k.restore(hw)
 
     def _spawn_sidebar(self, s: Session) -> None:
@@ -692,6 +792,8 @@ class Watcher:
             if code is not None:
                 del self.desktops[hw]
                 log.info("Desktop mode closed for %s (code %s)", hw, code)
+                if self.overlay is not None:
+                    self.overlay.restore(hw)  # remove the simulated second screen
         for hw, s in list(self.sessions.items()):
             code = s.proc.poll()
             if code is None:

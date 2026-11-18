@@ -80,6 +80,7 @@ function Install-Phonnect {
             try { $Version = ((Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest").tag_name) -replace '^v', '' }
             catch { throw "Could not reach GitHub to find the latest release: $($_.Exception.Message)" }
         }
+        if ($Version -notmatch '^\d{1,4}(\.\d{1,4}){1,3}$') { throw "Not a release version: '$Version'" }
         $Source = "$Releases/download/v$Version/phonnect-$Version-py3-none-any.whl"
         $what = "Phonnect $Version"
     } else {

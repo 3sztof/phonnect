@@ -135,8 +135,11 @@ if [ -z "$SOURCE" ]; then
         latest="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$RELEASES/latest")" ||
             fail "Could not reach GitHub to find the latest release."
         VERSION="${latest##*/v}"
-        case "$VERSION" in [0-9]*) ;; *) fail "Could not find the latest release at $RELEASES" ;; esac
     fi
+    # Only digits and dots: the version goes into URLs and commands.
+    case "$VERSION" in
+        ""|*[!0-9.]*|.*|*.|*..*) fail "Not a release version: '$VERSION' (see $RELEASES)" ;;
+    esac
     SOURCE="$RELEASES/download/v$VERSION/phonnect-$VERSION-py3-none-any.whl"
     WHAT="Phonnect $VERSION"
 else

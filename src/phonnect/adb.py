@@ -237,6 +237,25 @@ class Adb:
     def usb_debugging_enabled(self, serial: str) -> bool | None:
         return self._global_flag(serial, "adb_enabled")
 
+    def global_setting(self, serial: str, name: str) -> tuple[bool, str | None]:
+        """(read ok, value) of a global setting; value None means it isn't set."""
+        try:
+            r = self.run("-s", serial, "shell", "settings", "get", "global", name, timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            return False, None
+        if r.returncode != 0:
+            return False, None
+        out = r.stdout.strip()
+        return True, (None if out in ("", "null") else out)
+
+    def put_global_setting(self, serial: str, name: str, value: str | None) -> bool:
+        """Set a global setting, or remove it (value None)."""
+        args = ["put", "global", name, value] if value is not None else ["delete", "global", name]
+        try:
+            return self.run("-s", serial, "shell", "settings", *args, timeout=10).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+
     def _global_flag(self, serial: str, name: str) -> bool | None:
         try:
             out = self.run("-s", serial, "shell", "settings", "get", "global", name, timeout=10).stdout.strip()

@@ -457,9 +457,7 @@ class TrayApp:
     def _desktop(self, hw_id: str):
         def action(*_):
             if self.watcher:
-                result = self.watcher.open_desktop(hw_id)
-                if result not in ("started", "already open"):
-                    self.notify(f"Desktop mode: {result}")
+                self._background(lambda: self.watcher.open_desktop_and_report(hw_id))
 
         return action
 

@@ -198,3 +198,30 @@ class DensityKeeper(PhoneSettingKeeper):
             self.restore(hw_id)
         else:
             self.change(hw_id, lambda saved: self.scaled(saved, percent), f"{percent}%")
+
+
+class OverlayDisplayKeeper(PhoneSettingKeeper):
+    """Desktop mode: a simulated second screen (Developer options > Simulate secondary displays).
+
+    Android's desktop launches apps on it, unlike on scrcpy's own virtual displays, where the
+    desktop's taskbar can't open apps on current Pixels (scrcpy issues #6699, #7048). While it's
+    on, the phone shows a small preview of that screen. Removed when the desktop window closes.
+    """
+
+    what = "simulated second screen"
+    filename = "overlay-display.json"
+    SETTING = "overlay_display_devices"
+
+    def read(self, serial):
+        ok, value = self.adb.global_setting(serial, self.SETTING)
+        return {"value": value} if ok else None
+
+    def write(self, serial, state):
+        return self.adb.put_global_setting(serial, self.SETTING, state.get("value"))
+
+    def describe(self, state):
+        return state.get("value") or "none"
+
+    def show(self, hw_id: str, spec: str) -> None:
+        """spec: WIDTHxHEIGHT/DPI, e.g. 1920x1080/160."""
+        self.change(hw_id, lambda saved: {"value": spec}, spec)

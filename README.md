@@ -100,6 +100,22 @@ Your phones come first: **click a phone to see it.** The app connects over Wi-Fi
 
 More in [docs/usage.md](docs/usage.md).
 
+## Command line
+
+Everything in the tray also works from a terminal, which is handy for scripts and troubleshooting:
+
+```sh
+phonnect status        # running? where are scrcpy, adb, settings and the log?
+phonnect doctor        # check scrcpy, adb and your phone, with hints
+phonnect mirror        # open the mirror window(s) now
+phonnect pair --qr     # pair a Wi-Fi phone by scanning a QR code in the terminal
+phonnect wifi          # list Wi-Fi phones; --reconnect all to connect them
+phonnect update        # install a new release
+phonnect log           # the end of the log
+```
+
+`phonnect --help` lists all commands; [docs/usage.md](docs/usage.md#commands) explains them.
+
 ## Platforms
 
 | | |

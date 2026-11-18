@@ -26,6 +26,18 @@ PHONNECT_REPO = "3sztof/phonnect"
 SCRCPY_REPO = "Genymobile/scrcpy"
 CHECK_EVERY = 24 * 3600
 RELEASES = f"https://github.com/{PHONNECT_REPO}/releases"
+# Release versions as published: digits and dots only. Anything else (from the API or the
+# cache file) is rejected, because the version ends up in the updater's command line.
+STRICT_VERSION_RE = re.compile(r"\d{1,4}(\.\d{1,4}){1,3}")
+
+
+def strict_version(text: str | None) -> str | None:
+    """`text` as a plain version ("1.2.3", a leading "v" allowed), or None if it's anything else."""
+    if not isinstance(text, str):
+        return None
+    candidate = text.strip()
+    candidate = candidate[1:] if candidate[:1] in ("v", "V") else candidate
+    return candidate if STRICT_VERSION_RE.fullmatch(candidate) else None
 
 
 def parse_version(text: str | None) -> tuple[int, ...] | None:
@@ -53,10 +65,13 @@ def latest_release(repo: str, timeout: float = 10) -> str | None:
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             tag = json.load(resp).get("tag_name", "")
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, AttributeError) as exc:
         log.info("Update check for %s failed: %s", repo, exc)
         return None
-    return tag.lstrip("v") or None
+    version = strict_version(tag)
+    if version is None:
+        log.warning("Ignoring the latest release of %s: unexpected tag %r", repo, str(tag)[:40])
+    return version
 
 
 @dataclass
@@ -73,7 +88,9 @@ def cache_file() -> Path:
 def load_cache() -> Releases:
     try:
         data = json.loads(cache_file().read_text(encoding="utf-8"))
-        return Releases(data.get("phonnect"), data.get("scrcpy"), float(data.get("checked_at", 0)))
+        return Releases(
+            strict_version(data.get("phonnect")), strict_version(data.get("scrcpy")), float(data.get("checked_at", 0))
+        )
     except (OSError, ValueError, TypeError, AttributeError):
         return Releases()
 
@@ -135,13 +152,18 @@ def updater_command(version: str, confirm: bool = True) -> list[str]:
 
     confirm=False answers yes (the user already clicked Update). The window closes by itself
     a few seconds after a successful update, and stays open after a failure so it can be read.
+    Raises ValueError for anything but a plain version: it goes into a command line.
     """
+    checked = strict_version(version)
+    if checked is None:
+        raise ValueError(f"not a release version: {version!r}")
+    version = checked
     if IS_WINDOWS:
         yes = "" if confirm else "$env:PHONNECT_YES = '1'; "
         script = (
             f"$env:PHONNECT_UPDATE = '1'; $env:PHONNECT_VERSION = '{version}'; {yes}"
             "$env:PHONNECT_RESULT = ''; "
-            f"irm {installer_url(version, 'install.ps1')} | iex; "
+            f"irm '{installer_url(version, 'install.ps1')}' | iex; "
             "if ($env:PHONNECT_RESULT -eq 'ok') { Start-Sleep 5 } "
             "else { Read-Host 'Press Enter to close this window' }"
         )

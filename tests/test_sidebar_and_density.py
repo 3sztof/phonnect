@@ -215,4 +215,60 @@ def test_desktop_mode_needs_connection_and_scrcpy_3():
 def test_desktop_request_from_sidebar():
     h = Harness(auto_usb=False)
     h.tick(USB_PHONE)
-    assert h.watcher.handle_control({"cmd": "open_desktop", "hw": HW}) == {"ok": True, "result": "started"}
+    # Answers at once; the window opens in the background.
+    assert h.watcher.handle_control({"cmd": "open_desktop", "hw": HW}) == {"ok": True, "result": "opening"}
+    from test_watcher import _wait_for
+
+    assert _wait_for(lambda: h.watcher.desktops.get(HW) is not None)
+
+
+class FakeOverlayAdb:
+    """Global settings and displays of a phone, for the simulated-second-screen flow."""
+
+    def __init__(self, appears=True):
+        self.settings: dict[str, str] = {}
+        self.appears = appears
+
+    def global_setting(self, serial, name):
+        return True, self.settings.get(name)
+
+    def put_global_setting(self, serial, name, value):
+        if value is None:
+            self.settings.pop(name, None)
+        else:
+            self.settings[name] = value
+        return True
+
+    def displays(self):
+        shown = self.appears and "overlay_display_devices" in self.settings
+        return {0: "1080x2400", **({7: "1920x1080"} if shown else {})}
+
+
+def _overlay_harness(appears=True):
+    from phonnect.phone_state import OverlayDisplayKeeper
+
+    h = Harness(auto_usb=False)
+    fake = FakeOverlayAdb(appears)
+    h.watcher.overlay = OverlayDisplayKeeper(fake, h.watcher.online_serial, threaded=False)
+    h.watcher._display_ids = lambda serial: fake.displays()
+    h.tick(USB_PHONE)
+    return h, fake
+
+
+def test_desktop_mode_uses_a_simulated_second_screen_and_removes_it(home):
+    h, fake = _overlay_harness()
+    assert h.watcher.open_desktop(HW) == "started"
+    assert fake.settings == {"overlay_display_devices": "1920x1080/160"}
+    args = h.procs[-1].args
+    assert "--display-id=7" in args and not any(a.startswith("--new-display") for a in args)
+    h.procs[-1].close_window()
+    h.tick(USB_PHONE)
+    assert fake.settings == {}, "the phone's setting is put back when the desktop closes"
+
+
+def test_desktop_mode_falls_back_to_scrcpys_virtual_display(home):
+    h, fake = _overlay_harness(appears=False)
+    h.watcher._clock = iter(range(0, 1000, 5)).__next__  # skip the waiting
+    assert h.watcher.open_desktop(HW) == "started"
+    assert "--new-display=1920x1080/160" in h.procs[-1].args
+    assert fake.settings == {}, "nothing left changed on the phone"
