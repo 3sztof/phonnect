@@ -9,6 +9,8 @@ authors = [{ name = "Krzysztof" }]
 dependencies = [
     "pystray>=0.19.5",
     "Pillow>=13.0",
+    "darkdetect>=0.8",
+    "sv-ttk>=2.6; sys_platform == 'win32'",
 ]
 classifiers = [
     "Environment :: MacOS X",

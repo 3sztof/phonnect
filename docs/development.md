@@ -46,6 +46,15 @@ The *Release* workflow (`.github/workflows/release.yml`) then:
 3. builds the wheel and source archive with `uv build`
 4. publishes a GitHub Release with both files and the install command
 
+## Look and feel
+
+`theme.py` makes the Tk windows match the OS, in light or dark mode:
+- **Windows:** the [Sun Valley](https://github.com/rdbende/Sun-Valley-ttk-theme) theme (`sv-ttk`, MIT), which gives Windows 11 Fluent widgets. Title bars are switched to dark through the documented DWM attribute. Tray menus follow the system light/dark mode through uxtheme's `SetPreferredAppMode`. That call is undocumented but long-stable, and the app falls back to light menus if it's missing.
+- **macOS:** Tk's own Aqua theme already follows the system, so nothing is needed.
+- **Linux:** Tk's built-in `clam` theme, recoloured with GNOME's Adwaita palette. (`ttkthemes` was skipped because it's GPL-3.0.)
+
+Light or dark is detected with `darkdetect`. The tray menu itself is always drawn by the OS.
+
 ## Icons
 
 `icons.py` draws the app and tray icons from Lucide's `monitor-smartphone` icon (ISC, see `THIRD_PARTY_NOTICES.txt`). The images in `docs/images/` were generated with it.

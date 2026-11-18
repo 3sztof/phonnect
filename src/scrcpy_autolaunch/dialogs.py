@@ -11,6 +11,7 @@ import queue
 import threading
 import time
 
+from scrcpy_autolaunch import theme
 from scrcpy_autolaunch.adb import Adb
 from scrcpy_autolaunch.wireless import (
     KnownDevices,
@@ -103,6 +104,8 @@ def _form(parent, kind: str, adb: Adb, known: KnownDevices, on_finished):
     from tkinter import ttk
 
     win = tk.Toplevel(parent)
+    pal = getattr(parent, "_palette", theme.LIGHT)
+    win.after(0, theme.title_bar, win)
     win.title("Pair Android device" if kind == "pair" else "Connect to address")
     win.resizable(False, False)
     win.attributes("-topmost", True)
@@ -119,7 +122,7 @@ def _form(parent, kind: str, adb: Adb, known: KnownDevices, on_finished):
         ttk.Label(frame, text="Pairing code").grid(row=2, column=0, sticky="w")
         code = ttk.Entry(frame, width=30)
         code.grid(row=2, column=1, sticky="we", pady=2)
-    status = ttk.Label(frame, text="", foreground="#555", wraplength=420, justify="left")
+    status = ttk.Label(frame, text="", foreground=pal.muted, wraplength=420, justify="left")
     status.grid(row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
     buttons = ttk.Frame(frame)
     buttons.grid(row=4, column=0, columnspan=2, sticky="e", pady=(12, 0))
@@ -156,14 +159,14 @@ def _form(parent, kind: str, adb: Adb, known: KnownDevices, on_finished):
 
     def done(result):
         ok, msg = result
-        status.config(text=msg, foreground="#1a7f37" if ok else "#b42318")
+        status.config(text=msg, foreground=pal.ok if ok else pal.error)
         go.state(["!disabled"])
         if ok:
             on_finished(True, msg)
             win.after(1200, win.destroy)
 
     def submit(_event=None):
-        if worker.submit(work, done, lambda m: status.config(text=m, foreground="#555")):
+        if worker.submit(work, done, lambda m: status.config(text=m, foreground=pal.muted)):
             go.state(["disabled"])
 
     ttk.Button(buttons, text="Close", command=win.destroy).grid(row=0, column=0, padx=4)
@@ -187,6 +190,7 @@ def _standalone_form(kind: str, adb: Adb) -> int:
 
     root = tk.Tk()
     root.withdraw()
+    root._palette = theme.apply(root)
     _set_window_icon(root)
     result = {"code": 1}
 
@@ -207,6 +211,7 @@ class DevicesWindow:
         self.adb = adb
         self.known = KnownDevices()
         self.root = tk.Tk()
+        self.root._palette = theme.apply(self.root)
         self.root.title("Wi-Fi devices - scrcpy-autolaunch")
         _set_window_icon(self.root)
         self.root.minsize(560, 300)
@@ -260,7 +265,8 @@ class DevicesWindow:
         self.root.mainloop()
 
     def say(self, text: str, ok: bool | None = None):
-        color = {True: "#1a7f37", False: "#b42318", None: "#555"}[ok]
+        pal = self.root._palette
+        color = {True: pal.ok, False: pal.error, None: pal.muted}[ok]
         self.status.config(text=text, foreground=color)
 
     def refresh(self):

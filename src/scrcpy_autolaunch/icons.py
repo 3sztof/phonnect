@@ -84,25 +84,12 @@ def app_icon(size: int = 256):
     return tile
 
 
-def taskbar_is_light() -> bool:
-    """Windows: whether the taskbar uses the light theme (so the icon needs dark strokes)."""
-    if not IS_WINDOWS:
-        return False
-    try:
-        import winreg
-
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
-        ) as key:
-            return winreg.QueryValueEx(key, "SystemUsesLightTheme")[0] == 1
-    except OSError:
-        return False
-
-
 def tray_icon(state: str):
     """state: 'connected' (green phone), 'waiting' (outline only) or 'problem' (red phone)."""
     if IS_WINDOWS:
-        stroke = DARK if taskbar_is_light() else WHITE
+        from scrcpy_autolaunch.theme import system_is_light
+
+        stroke = DARK if system_is_light() else WHITE
     else:
         stroke = (160, 160, 160, 255)  # readable on light and dark menu bars / panels
     fill = {"connected": GREEN, "problem": RED}.get(state)

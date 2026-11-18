@@ -23,7 +23,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from scrcpy_autolaunch import autostart, icons, paths
+from scrcpy_autolaunch import autostart, icons, paths, theme
 from scrcpy_autolaunch.adb import USB, WIRELESS, Adb
 from scrcpy_autolaunch.config import Config
 from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, focus_process_window, gui_python, open_path
@@ -456,6 +456,7 @@ def hide_dock_icon() -> None:
 
 def run_tray(config: Config, adb: Adb | None, scrcpy: str | None, version, problem: str | None) -> None:
     hide_dock_icon()
+    theme.match_tray_menu_theme()
     app = TrayApp(config, adb, scrcpy, version, problem)
     log.info("Tray started (Python %s)", sys.version.split()[0])
     app.run()
