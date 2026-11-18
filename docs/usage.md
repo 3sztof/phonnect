@@ -12,15 +12,21 @@ Pixel 6: allow USB debugging on the phone needs your attention
 ---
 Audio                                 >  Off / PC and phone / PC only
 Force landscape
-Wi-Fi                                 >  Pair new phone… / Connect to address… / Manage Wi-Fi phones… / Disconnect all
+Wi-Fi                                 >  Pair new phone… (QR code or pairing code) / Connect to address… /
+                                         Manage Wi-Fi phones… / Disconnect all
 Settings                              >  Auto-launch on USB
                                          Auto-launch on Wi-Fi
                                          Keep Wi-Fi connected after closing the window
+                                         Find a Wi-Fi phone's new port by scanning it
                                          Show sidebar next to the window
                                          Hide phone keyboard while mirroring
                                          Mouse buttons >  Right click / Middle click / Side buttons
                                          Start at login
+                                         Check for updates (once a day) / Check for updates now
                                          Open log / Open settings folder
+                                         Phonnect X.Y.Z (the installed version)
+Update Phonnect to X.Y.Z…                 only when there's a new release
+scrcpy X.Y is available…                  only when there's a new scrcpy: shows how to update it
 ---
 Quit
 ```
@@ -29,7 +35,8 @@ Quit
 - A phone on both USB and Wi-Fi is one entry, mirrored over USB.
 - **Show window** (Windows) brings a mirror window hidden behind others to the front.
 - **Open shell** opens `adb shell` for that phone in your terminal app (on Windows, your default terminal, e.g. Windows Terminal).
-- The icon is green when a phone is connected, grey while it waits, and red if scrcpy or adb wasn't found. Hover over it for a status summary.
+- The icon is green when a phone is connected, and red if scrcpy or adb wasn't found. While it waits, it's white or black to match the other icons next to it (it follows dark and light mode). Hover over it for a status summary.
+- **Update Phonnect** opens a terminal window that installs the new release, after asking. It stops the app first (putting phone settings back), then starts the new version. Settings and remembered phones are kept. The check asks GitHub's API for the latest release once a day and sends nothing else; *Check for updates* turns it off.
 - **Quit** stops watching for phones. Open mirror windows stay open, but the sidebars close and every phone setting the app changed (rotation, content size) is put back.
 
 ## The sidebar
@@ -47,7 +54,7 @@ A slim button bar next to each mirror window (on by default; **Settings → Show
 | Shell | Opens `adb shell` for the phone in your terminal app |
 | Content size slider | Drag down to fit more on the screen (see below) |
 
-Hover over a button for its name. On **Windows** the bar is glued to the window's right edge (or left edge, if there's no room on the right): it follows when you move, resize or minimize the window, and clicking it doesn't take the keyboard away from the mirror. On **macOS and Linux** it's a small floating window instead, because apps can't follow other windows reliably there.
+Hover over a button for its name. On **Windows and macOS** the bar is glued to the window's right edge (or left edge, if there's no room on the right): it follows when you move, resize or minimize the window, and clicking it doesn't take the keyboard away from the mirror (Windows). On macOS it stays above the mirror window while that's in front, and hides when the mirror goes full screen. On **Linux** it's a small floating window instead, because apps can't follow other windows reliably there.
 
 Buttons go to the phone through one `adb shell` that stays open, so presses are instant. scrcpy's own shortcuts work as well (Alt+B back, Alt+H home, Alt+S recent apps, Alt+N notifications, Alt+P power).
 
@@ -138,8 +145,9 @@ See [scrcpy's shortcuts](https://github.com/Genymobile/scrcpy/blob/master/doc/sh
 | `devices` | List adb devices |
 | `mirror [PHONE]` | Ask the running app to open a mirror window (a phone name, serial, or all) |
 | `wifi` / `wifi --reconnect NAME\|ID\|all` | List paired and remembered phones, or reconnect to them |
-| `pair [IP:PORT CODE]` / `connect [IP:PORT]` | Wi-Fi pairing and connecting. Without arguments, a window opens |
+| `pair [IP:PORT CODE]` / `pair --qr` / `connect [IP:PORT]` | Wi-Fi pairing and connecting. `--qr` shows a QR code in the terminal to scan with the phone. Without arguments, a window opens |
 | `discover [--connect]` / `disconnect [IP:PORT]` | Show what mDNS sees, or disconnect Wi-Fi phones |
+| `update [--check]` | Check for a new release and install it (on Windows, in a new window) |
 | `tray` / `run` | Run in the foreground, with the tray or console-only (logging to the terminal) |
 
 From a clone, `just start`, `just stop`, `just status`, `just doctor` and `just log` do the same.
@@ -157,6 +165,8 @@ Settings changed in the tray are saved immediately. You can also edit the file d
   "keep_wifi_connected": false,
   "content_scale": 100,
   "show_sidebar": true,
+  "check_updates": true,
+  "wifi_port_scan": true,
   "desktop_display": "1920x1080/160",
   "mouse_buttons": {"right": "app", "middle": "home", "back": "back", "forward": "recents"},
   "audio": "off",
@@ -182,8 +192,8 @@ Settings changed in the tray are saved immediately. You can also edit the file d
 |---|---|---|---|
 | Settings | `%LOCALAPPDATA%\phonnect\config.json` | `~/Library/Application Support/phonnect/config.json` | `~/.config/phonnect/config.json` |
 | Log, remembered phones, icons | same folder | same folder | `~/.local/state/phonnect/` |
-| Start at login | `shell:startup\phonnect.lnk` | `~/Library/LaunchAgents/io.github.3sztof.phonnect.plist` | `~/.config/autostart/phonnect.desktop` |
-| App menu entry | Start menu: `phonnect.lnk` | none | `~/.local/share/applications/phonnect.desktop` |
+| Start at login | `shell:startup\Phonnect.lnk` | `~/Library/LaunchAgents/io.github.3sztof.phonnect.plist` | `~/.config/autostart/phonnect.desktop` |
+| App menu entry | Start menu: `Phonnect.lnk` | `~/Applications/Phonnect.app` (Spotlight, Launchpad) | `~/.local/share/applications/phonnect.desktop` |
 | App | `uv tool dir` | `uv tool dir` | `uv tool dir` |
 
 The log is capped at about 2 MB.

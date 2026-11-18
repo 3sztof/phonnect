@@ -23,7 +23,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from phonnect import autostart, icons, paths, theme
+from phonnect import __version__, autostart, icons, paths, theme, updates
 from phonnect.adb import USB, WIRELESS, Adb
 from phonnect.config import Config
 from phonnect.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, focus_process_window, gui_python, open_path
@@ -127,7 +127,10 @@ class TrayApp:
         self.problem = problem
         self.known = KnownDevices()
         self._connecting: set[str] = set()
-        self._icon_state = "problem" if problem else "waiting"
+        self._stopping = threading.Event()
+        self.releases = updates.load_cache()
+        initial = "problem" if problem else "waiting"
+        self._icon_key = (initial, icons.tray_stroke())
         self.watcher = (
             Watcher(config, adb, scrcpy, version, on_change=self.refresh, notify=self.notify, known=self.known)
             if adb and scrcpy
@@ -140,7 +143,7 @@ class TrayApp:
             self.watcher.on_quit = self.quit
         self.icon = icon_class(pystray)(
             "phonnect",
-            icon=icons.tray_icon("problem" if problem else "waiting"),
+            icon=icons.tray_icon(initial, self._icon_key[1]),
             title="Phonnect",
             menu=pystray.Menu(self._menu_items),
         )
@@ -150,12 +153,14 @@ class TrayApp:
     def run(self) -> None:
         def setup(icon):
             icon.visible = True
+            threading.Thread(target=self._housekeeping, name="housekeeping", daemon=True).start()
             if self.watcher:
                 self.watcher.start()
             else:
                 self.notify(self.problem or "adb/scrcpy not found")
 
         self.icon.run(setup=setup)
+        self._stopping.set()
         if self.watcher:
             self.watcher.stop()
 
@@ -167,7 +172,8 @@ class TrayApp:
         from phonnect.control import remove_endpoint
 
         remove_endpoint()
-        self.icon.stop()
+        self._stopping.set()
+        self._on_main(self.icon.stop)
 
     # ── state shown in the tray ──────────────────────────────────────────────
 
@@ -176,26 +182,48 @@ class TrayApp:
         return build_rows(phones, self.known.all(), self._connecting)
 
     def refresh(self) -> None:
+        # Called from the watcher's threads. AppKit may only be touched from the main
+        # thread: updating the status item from another one can freeze the whole app.
+        self._on_main(self._refresh_now)
+
+    def _refresh_now(self) -> None:
         try:
             rows = self.rows()
             if self.problem:
                 state = "problem"
             else:
                 state = "connected" if any(r.via for r in rows) else "waiting"
-            if state != self._icon_state:
-                self._icon_state = state
-                self.icon.icon = icons.tray_icon(state)
+            key = (state, icons.tray_stroke())
+            if key != self._icon_key:
+                self._icon_key = key
+                self.icon.icon = icons.tray_icon(state, key[1])
             self.icon.title = self._tooltip(rows)
             self.icon.update_menu()
         except Exception:
             log.exception("Tray refresh failed")
 
+    @staticmethod
+    def _on_main(fn) -> None:
+        if IS_MAC:
+            try:
+                from PyObjCTools import AppHelper  # type: ignore
+
+                AppHelper.callAfter(fn)
+                return
+            except ImportError:
+                pass
+        fn()
+
     def notify(self, message: str) -> None:
         log.info("Notification: %s", message)
-        try:
-            self.icon.notify(message, "Phonnect")
-        except Exception:
-            pass  # not every Linux tray backend supports notifications
+
+        def show():
+            try:
+                self.icon.notify(message, "Phonnect")
+            except Exception:
+                pass  # not every Linux tray backend supports notifications
+
+        self._on_main(show)
 
     def _tooltip(self, rows: list[PhoneRow]) -> str:
         if self.problem:
@@ -206,8 +234,69 @@ class TrayApp:
                 for r in rows
                 if r.state != "available"
             ] or ["No phone connected"]
+        if version := self._phonnect_update():
+            lines.append(f"Update available: Phonnect {version}")
         # Windows limits tooltips to 127 characters.
         return ("Phonnect\n" + "\n".join(lines))[:127]
+
+    # ── housekeeping: icon colour, entries after an update, update checks ───
+
+    def _housekeeping(self) -> None:
+        try:
+            if autostart.refresh_entries(__version__):
+                log.info("Start-at-login / app menu entries updated for %s", __version__)
+        except Exception:
+            log.exception("Could not update the start-at-login / app menu entries")
+        last_check = 0.0
+        started = time.monotonic()
+        while not self._stopping.wait(5):
+            if (self._icon_key or ("", None))[1] != icons.tray_stroke():
+                self.refresh()  # the light/dark mode changed
+            # First check a little after start (not during login), then hourly; check() itself
+            # only asks GitHub once a day.
+            due = time.monotonic() - started > 30 and time.monotonic() - last_check > 3600
+            if due and self.config.check_updates:
+                last_check = time.monotonic()
+                self._check_updates()
+
+    def _check_updates(self, force: bool = False) -> None:
+        before = (self._phonnect_update(), self._scrcpy_update())
+        self.releases = updates.check(force=force)
+        if (self._phonnect_update(), self._scrcpy_update()) != before:
+            self.refresh()
+
+    def _phonnect_update(self) -> str | None:
+        return updates.phonnect_update(self.releases) if self.config.check_updates else None
+
+    def _scrcpy_update(self) -> str | None:
+        if not self.config.check_updates or self.watcher is None:
+            return None
+        return updates.scrcpy_update(self.releases, self.watcher.scrcpy_version)
+
+    def _update_phonnect(self, *_):
+        version = self._phonnect_update()
+        if not version:
+            return
+        try:
+            updates.start_update(version)
+        except OSError as exc:
+            self.notify(f"Could not open a terminal for the update: {exc}")
+
+    def _show_scrcpy_update(self, *_):
+        path = self.watcher.scrcpy if self.watcher else None
+        self.notify(f"scrcpy {self._scrcpy_update()} is available. {updates.scrcpy_update_hint(path)}")
+
+    def _check_updates_now(self, *_):
+        def work():
+            self._check_updates(force=True)
+            if version := self._phonnect_update():
+                self.notify(f"Phonnect {version} is available: choose 'Update Phonnect' in this menu.")
+            elif self.releases.phonnect is None:
+                self.notify("Could not reach GitHub to check for updates. See the log.")
+            else:
+                self.notify(f"Phonnect {__version__} is up to date.")
+
+        self._background(work)
 
     # ── menu ─────────────────────────────────────────────────────────────────
 
@@ -260,6 +349,11 @@ class TrayApp:
                     checked=lambda _: self.config.keep_wifi_connected,
                 ),
                 Item(
+                    "Find a Wi-Fi phone's new port by scanning it",
+                    self._toggle("wifi_port_scan"),
+                    checked=lambda _: self.config.wifi_port_scan,
+                ),
+                Item(
                     "Show sidebar next to the window",
                     self._toggle_sidebar,
                     checked=lambda _: self.config.show_sidebar,
@@ -271,11 +365,23 @@ class TrayApp:
                 ),
                 Item("Mouse buttons", Menu(*self._mouse_items())),
                 Item("Start at login", self._toggle_autostart, checked=lambda _: autostart.is_enabled()),
+                Item(
+                    "Check for updates (once a day)",
+                    self._toggle("check_updates"),
+                    checked=lambda _: self.config.check_updates,
+                ),
+                Item("Check for updates now", self._check_updates_now),
                 Menu.SEPARATOR,
                 Item("Open log", lambda *_: self._open(paths.log_file())),
                 Item("Open settings folder", lambda *_: self._open(paths.config_dir())),
+                Menu.SEPARATOR,
+                Item(f"Phonnect {__version__}", None, enabled=False),
             ),
         )
+        if version := self._phonnect_update():
+            yield Item(f"Update Phonnect to {version}…", self._update_phonnect)
+        if version := self._scrcpy_update():
+            yield Item(f"scrcpy {version} is available…", self._show_scrcpy_update)
         yield Menu.SEPARATOR
         yield Item("Quit", self.quit)
 

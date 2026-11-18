@@ -31,8 +31,13 @@ class ControlServer:
         outer = self
 
         class Handler(socketserver.StreamRequestHandler):
+            timeout = 5  # a client that connects and sends nothing doesn't hold a thread forever
+
             def handle(self):
-                line = self.rfile.readline(MAX_REQUEST)
+                try:
+                    line = self.rfile.readline(MAX_REQUEST)
+                except OSError:  # includes the timeout
+                    return
                 try:
                     msg = json.loads(line)
                     if not isinstance(msg, dict) or not secrets.compare_digest(str(msg.get("token", "")), outer.token):

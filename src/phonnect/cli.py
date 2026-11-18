@@ -278,8 +278,8 @@ def cmd_install(args) -> int:
         print(f"Removed old entry: {p}")
     path = autostart.enable()
     print(f"Start at login enabled: {path}")
-    if (menu := autostart.add_menu_entry()) is not None:
-        print(f"App menu entry: {menu}")
+    menu = autostart.add_menu_entry()
+    print(f"App menu entry: {menu}")
     if (legacy := legacy_startup_entry()) is not None:
         print(f"warning: old PowerShell watcher found in Startup: {legacy} (see README, 'Migrating from legacy')")
     if shutil.which("scrcpy-autolaunch"):
@@ -290,6 +290,30 @@ def cmd_install(args) -> int:
     if args.no_start:
         return 0
     return cmd_start(args)
+
+
+def cmd_update(args) -> int:
+    from phonnect import updates
+
+    releases = updates.check(force=True)
+    if releases.phonnect is None:
+        print("Could not reach GitHub to check for updates.")
+        return 1
+    version = updates.phonnect_update(releases)
+    if version is None:
+        print(f"Phonnect {__version__} is up to date (latest release: {releases.phonnect}).")
+        return 0
+    print(f"Phonnect {version} is available (installed: {__version__}).")
+    if args.check:
+        return 0
+    if IS_WINDOWS:
+        # This command's own files are about to be replaced, which Windows doesn't allow
+        # while they run: the update continues in a new window.
+        updates.start_update(version)
+        print("The update continues in a new window.")
+        return 0
+    cmd = updates.updater_command(version)
+    os.execvp(cmd[0], cmd)
 
 
 def cmd_uninstall(args) -> int:
@@ -325,11 +349,35 @@ def cmd_devices(args) -> int:
 
 def cmd_pair(args) -> int:
     adb = require_adb(Config.load())
+    if args.qr:
+        return _pair_with_qr(adb)
     if not args.address:
         return _dialog(adb, "pair")
     code = args.code or input("Pairing code: ").strip()
     ok, out = adb.pair(args.address, code)
     print(out)
+    return 0 if ok else 1
+
+
+def _pair_with_qr(adb: Adb) -> int:
+    import segno
+
+    from phonnect.wireless import KnownDevices, new_qr_pairing, pair_and_connect, wait_for_qr_scan
+
+    pairing = new_qr_pairing()
+    print("On the phone: Settings > System > Developer options > Wireless debugging > Pair device with QR code,")
+    print("then scan this code (the phone and this computer must be on the same network):\n")
+    segno.make(pairing.text, error="m").terminal(compact=True)
+    print("\nWaiting for the phone (Ctrl+C to cancel) ...")
+    try:
+        address = wait_for_qr_scan(adb, pairing, lambda: False)
+    except KeyboardInterrupt:
+        return 130
+    if address is None:
+        print("The phone didn't show up within 5 minutes. Check that it's on the same network, then try again.")
+        return 1
+    ok, message = pair_and_connect(adb, KnownDevices(), address, pairing.password, progress=print)
+    print(message)
     return 0 if ok else 1
 
 
@@ -488,6 +536,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = add("pair", cmd_pair, "pair a phone for wireless debugging (opens a dialog without arguments)")
     sp.add_argument("address", nargs="?", help="IP:PORT from 'Pair device with pairing code'")
     sp.add_argument("code", nargs="?", help="6-digit pairing code")
+    sp.add_argument("--qr", action="store_true", help="show a QR code to scan with the phone instead")
     add(
         "connect", cmd_connect, "connect over Wi-Fi to IP:PORT (opens the Wi-Fi devices window without arguments)"
     ).add_argument("address", nargs="?", help="IP:PORT shown on the Wireless debugging screen")
@@ -502,6 +551,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add("log", cmd_log, "print the end of the log").add_argument(
         "-n", "--lines", type=int, default=30, help="number of lines (default 30)"
+    )
+    add("update", cmd_update, "check for a new release and install it").add_argument(
+        "--check", action="store_true", help="only check, don't install"
     )
     sp = add("_dialog", cmd_dialog, argparse.SUPPRESS)
     sp.add_argument("kind", choices=["pair", "connect", "devices"])

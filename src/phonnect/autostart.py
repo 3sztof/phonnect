@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import plistlib
+import shlex
 import shutil
 import subprocess
 import sys
@@ -37,7 +38,7 @@ def entry_path() -> Path:
     home = Path.home()
     if IS_WINDOWS:
         appdata = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming")
-        return appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "phonnect.lnk"
+        return appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "Phonnect.lnk"
     if IS_MAC:
         return home / "Library" / "LaunchAgents" / f"{LABEL}.plist"
     config = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
@@ -118,26 +119,27 @@ def remove_legacy_entries() -> list[Path]:
 # ── app menu entry (Start menu / Linux app launcher) ─────────────────────────
 
 
-def menu_entry_path() -> Path | None:
-    """Where the app-menu shortcut lives, or None where we don't create one (macOS)."""
+def menu_entry_path() -> Path:
+    """Where the app-menu entry lives: Start menu shortcut, app bundle (macOS) or launcher entry (Linux)."""
     home = Path.home()
     if IS_WINDOWS:
         appdata = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming")
-        return appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "phonnect.lnk"
+        return appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Phonnect.lnk"
     if IS_MAC:
-        return None  # would need an .app bundle
+        # ~/Applications is per-user, and Spotlight and Launchpad list what's in it.
+        return home / "Applications" / "Phonnect.app"
     data = Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
     return data / "applications" / "phonnect.desktop"
 
 
-def add_menu_entry(cmd: list[str] | None = None) -> Path | None:
+def add_menu_entry(cmd: list[str] | None = None) -> Path:
     path = menu_entry_path()
-    if path is None:
-        return None
     cmd = cmd or tray_command()
     path.parent.mkdir(parents=True, exist_ok=True)
     if IS_WINDOWS:
         _write_windows_shortcut(path, cmd, _icon_file(".ico"))
+    elif IS_MAC:
+        write_mac_app(path, cmd)
     else:
         path.write_text(linux_desktop_entry(cmd, autostart=False, icon=_icon_file(".png")), encoding="utf-8")
     return path
@@ -145,10 +147,72 @@ def add_menu_entry(cmd: list[str] | None = None) -> Path | None:
 
 def remove_menu_entry() -> bool:
     path = menu_entry_path()
-    if path is None or not path.exists():
+    if not path.exists():
         return False
-    path.unlink()
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
     return True
+
+
+def refresh_entries(version: str) -> list[Path]:
+    """After an update, rewrite the entries that exist, so they point at the new install.
+
+    Also gives entries made by older versions their current names (phonnect.lnk -> Phonnect.lnk).
+    Runs once per version; returns the entries rewritten.
+    """
+    from phonnect import paths
+
+    marker = paths.state_dir() / "entries-version"
+    try:
+        if marker.read_text(encoding="utf-8").strip() == version:
+            return []
+    except OSError:
+        pass
+    done = []
+    if is_enabled():
+        done.append(enable())
+    if menu_entry_path().exists():
+        done.append(add_menu_entry())
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(version, encoding="utf-8")
+    return done
+
+
+def mac_info_plist(version: str = "") -> bytes:
+    return plistlib.dumps(
+        {
+            "CFBundleName": "Phonnect",
+            "CFBundleDisplayName": "Phonnect",
+            "CFBundleIdentifier": LABEL,
+            "CFBundleExecutable": "Phonnect",
+            "CFBundleIconFile": "Phonnect.icns",
+            "CFBundlePackageType": "APPL",
+            "CFBundleShortVersionString": version or "0",
+            "LSUIElement": True,  # menu bar app: no Dock icon
+            "NSHighResolutionCapable": True,
+        }
+    )
+
+
+def write_mac_app(path: Path, cmd: list[str]) -> None:
+    """A minimal app bundle that starts the tray, so Phonnect shows up in Spotlight, Launchpad and Finder."""
+    from phonnect import __version__
+
+    contents = path / "Contents"
+    (contents / "MacOS").mkdir(parents=True, exist_ok=True)
+    (contents / "Resources").mkdir(parents=True, exist_ok=True)
+    (contents / "Info.plist").write_bytes(mac_info_plist(__version__))
+    launcher = contents / "MacOS" / "Phonnect"
+    launcher.write_text("#!/bin/sh\nexec " + " ".join(shlex.quote(a) for a in cmd) + "\n", encoding="utf-8")
+    launcher.chmod(0o755)
+    try:
+        from phonnect.icons import app_icon
+
+        app_icon(1024).save(contents / "Resources" / "Phonnect.icns")
+    except Exception:
+        pass  # the bundle still works, with a generic icon
 
 
 def macos_plist(cmd: list[str]) -> bytes:
@@ -187,6 +251,9 @@ def linux_desktop_entry(cmd: list[str], autostart: bool = True, icon: str = "") 
 
 
 def _write_windows_shortcut(path: Path, cmd: list[str], icon: str = "") -> None:
+    # Windows keeps an existing file's name when it's overwritten; remove it first so a
+    # renamed entry (phonnect.lnk -> Phonnect.lnk) gets the new spelling.
+    path.unlink(missing_ok=True)
     # Values go in through environment variables to avoid any quoting issues.
     script = (
         "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:SAL_LNK);"

@@ -1,0 +1,39 @@
+name: Bug report
+description: Something doesn't work as described
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `phonnect doctor`
+      description: |
+        Please replace phone serial numbers and IP addresses with something like `SERIAL` / `IP` first.
+        Serials are lasting device IDs.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: The end of the log (`phonnect log -n 80`)
+      description: Remove serial numbers and IP addresses here too.
+      render: text
+  - type: input
+    id: phone
+    attributes:
+      label: Phone and Android version
+      placeholder: e.g. Pixel 8, Android 16
+  - type: dropdown
+    id: os
+    attributes:
+      label: Computer
+      options: [Windows, macOS, Linux]
+    validations:
+      required: true

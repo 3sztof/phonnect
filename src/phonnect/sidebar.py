@@ -164,7 +164,7 @@ def process_alive(pid: int) -> bool:
         return True
 
 
-# ── docking (Windows) ────────────────────────────────────────────────────────
+# ── docking (Windows, macOS) ─────────────────────────────────────────────────
 
 
 def dock_position(
@@ -244,6 +244,85 @@ class WindowsDock:
         return True
 
 
+class MacDock:
+    """Follows the scrcpy window on macOS, using Quartz's window list.
+
+    Window bounds come in points with the origin at the top left of the main display,
+    the same coordinates Tk uses. Reading bounds needs no Screen Recording permission.
+    """
+
+    def __init__(self, root, pid: int, width: int):
+        self.root, self.pid, self.width = root, pid, width
+        self.hidden = False
+        self.last = None
+        self.on_top = None
+
+    def _bounds(self):
+        import Quartz  # type: ignore
+
+        options = Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements
+        for w in Quartz.CGWindowListCopyWindowInfo(options, Quartz.kCGNullWindowID) or []:
+            if w.get("kCGWindowOwnerPID") != self.pid or w.get("kCGWindowLayer", 0) != 0:
+                continue
+            b = w.get("kCGWindowBounds") or {}
+            x, y, width, height = (int(b.get(k, 0)) for k in ("X", "Y", "Width", "Height"))
+            if width > 50 and height > 50:
+                return x, y, x + width, y + height
+        return None
+
+    def _screen(self):
+        try:
+            import Quartz  # type: ignore
+
+            err, ids, count = Quartz.CGGetActiveDisplayList(16, None, None)
+            rects = [Quartz.CGDisplayBounds(i) for i in ids[:count]] if not err else []
+            if rects:
+                return (
+                    int(min(r.origin.x for r in rects)),
+                    int(min(r.origin.y for r in rects)),
+                    int(max(r.origin.x + r.size.width for r in rects)),
+                    int(max(r.origin.y + r.size.height for r in rects)),
+                )
+        except Exception:
+            pass
+        return 0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+
+    def _frontmost_pid(self) -> int | None:
+        try:
+            from AppKit import NSWorkspace  # type: ignore
+
+            return int(NSWorkspace.sharedWorkspace().frontmostApplication().processIdentifier())
+        except Exception:
+            return None
+
+    def attach(self) -> bool:
+        return self._bounds() is not None
+
+    def follow(self) -> bool:
+        """Always True: the sidebar exits when the scrcpy process does (see _watch_scrcpy)."""
+        target = self._bounds()
+        if target is None:  # minimized, hidden, or full screen in its own Space
+            if not self.hidden:
+                self.root.withdraw()
+                self.hidden = True
+            return True
+        x, y, w, h = dock_position(target, self.width, self._screen())
+        if (x, y, w, h) != self.last:
+            self.root.geometry(f"{w}x{h}+{x}+{y}")
+            self.last = (x, y, w, h)
+        if self.hidden:
+            self.root.deiconify()
+            self.hidden = False
+        # Above the mirror window while it (or the bar) is in front; not above other apps.
+        on_top = self._frontmost_pid() in (self.pid, os.getpid(), None)
+        if on_top != self.on_top:
+            self.root.attributes("-topmost", on_top)
+            if on_top:
+                self.root.lift()
+            self.on_top = on_top
+        return True
+
+
 # ── the window ───────────────────────────────────────────────────────────────
 
 
@@ -303,6 +382,10 @@ class Sidebar:
         self.app_pid = (int(app),) if app.isdigit() else ()
         self.shell = PhoneShell(adb, serial)
         self.root = root = tk.Tk()
+        if IS_MAC:
+            from phonnect.tray import hide_dock_icon
+
+            hide_dock_icon()  # a helper window of the menu bar app: no Dock icon of its own
         self.palette = theme.apply(root)
         root.title(f"{name} controls")
         self.width = round(WIDTH * root.winfo_fpixels("1i") / 96)
@@ -366,11 +449,11 @@ class Sidebar:
 
         self._load_state()
         self.dock = None
-        if IS_WINDOWS:
+        if IS_WINDOWS or IS_MAC:
             root.overrideredirect(True)
             root.geometry(f"{self.width}x400+-10000+-10000")  # off-screen until docked
             root.update_idletasks()
-            self.dock = WindowsDock(root, pid, self.width)
+            self.dock = WindowsDock(root, pid, self.width) if IS_WINDOWS else MacDock(root, pid, self.width)
             root.after(100, self._try_attach, 0)
         else:
             root.attributes("-topmost", True)

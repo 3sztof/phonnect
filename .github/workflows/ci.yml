@@ -4,21 +4,27 @@ on:
   push:
   pull_request:
 
+# Read-only: CI can't push, tag or publish anything.
+permissions:
+  contents: read
+
 # A new push supersedes the previous run on the same branch. Free accounts get
 # few macOS runners, so piled-up runs would otherwise wait and get cancelled.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Actions are pinned by commit (the tag is in the comment); Dependabot keeps them current.
 jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with:
           fetch-depth: 0  # the secret scan looks at the whole history
-      - uses: astral-sh/setup-uv@v7
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7.6.0
       - name: pre-commit hooks (incl. secret scanning)
         run: uvx pre-commit run --all-files --show-diff-on-failure
       - name: Secret scan of the whole git history
@@ -27,11 +33,15 @@ jobs:
         run: uv run ruff check --output-format github
       - name: Ruff (format)
         run: uv run ruff format --check
-      - uses: actions/setup-node@v5
+      - name: Install scripts (syntax)
+        run: |
+          sh -n scripts/install.sh
+          sh -n scripts/uninstall.sh
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5.0.0
         with:
           node-version: "22"
       - name: OpenSpec specs
-        run: npx --yes @fission-ai/openspec@latest validate --specs --strict
+        run: npx --yes @fission-ai/openspec@2.1.0 validate --specs --strict
         env:
           OPENSPEC_TELEMETRY: "0"
 
@@ -47,8 +57,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7.6.0
         with:
           python-version: ${{ matrix.python }}
       - name: Unit tests
@@ -57,6 +69,15 @@ jobs:
         run: |
           uv run phonnect --help
           uv run phonnect status || true
+      - name: Install scripts (PowerShell syntax)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($f in 'scripts/install.ps1', 'scripts/uninstall.ps1') {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile("$PWD/$f", [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { $errors | ForEach-Object { Write-Error "${f}: $($_.Message)" }; exit 1 }
+          }
       - name: Tool install from source
         run: |
           uv tool install .

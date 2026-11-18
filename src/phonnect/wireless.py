@@ -242,13 +242,105 @@ def mdns_address(adb: Adb, hw_id: str) -> str | None:
     return None
 
 
+# ── pairing with a QR code ───────────────────────────────────────────────────
+# Android 11+: Wireless debugging > "Pair device with QR code". The QR code holds a
+# service name and a password we make up. After scanning it, the phone advertises a
+# pairing service with that name over mDNS; we pair with its address and the password.
+
+
+@dataclass(frozen=True)
+class QrPairing:
+    name: str
+    password: str
+
+    @property
+    def text(self) -> str:
+        return f"WIFI:T:ADB;S:{self.name};P:{self.password};;"
+
+
+def new_qr_pairing() -> QrPairing:
+    import secrets
+    import string
+
+    alphabet = string.ascii_letters + string.digits
+    return QrPairing(
+        name="phonnect-" + "".join(secrets.choice(alphabet) for _ in range(8)),
+        password="".join(secrets.choice(alphabet) for _ in range(12)),
+    )
+
+
+def qr_pairing_address(adb: Adb, pairing: QrPairing) -> str | None:
+    """The phone's pairing address once it has scanned the code, else None."""
+    try:
+        services = adb.mdns_services()
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    for s in services:
+        if "tls-pairing" in s.service and s.name == pairing.name and split_address(s.address):
+            return s.address
+    return None
+
+
+def wait_for_qr_scan(
+    adb: Adb, pairing: QrPairing, cancelled: Callable[[], bool], timeout: float = 300, interval: float = 1.0
+) -> str | None:
+    """Poll mDNS until the phone shows up (it scanned the code), the caller gives up, or `timeout`."""
+    deadline = time.monotonic() + timeout
+    while not cancelled() and time.monotonic() < deadline:
+        if address := qr_pairing_address(adb, pairing):
+            return address
+        time.sleep(interval)
+    return None
+
+
+def pair_and_connect(
+    adb: Adb, known: KnownDevices, address: str, code: str, progress: Callable[[str], None] = lambda msg: None
+) -> tuple[bool, str]:
+    """Pair with the phone at `address`, remember it, then connect. Returns (ok, message)."""
+    progress("Pairing…")
+    ok, out = adb.pair(address, code)
+    if not ok:
+        return False, f"Pairing failed:\n{out or 'no output from adb'}"
+    hw = paired_guid(out)
+    ip = split_address(address)[0] if split_address(address) else ""
+    if not hw:
+        return True, "Paired. Now use Connect in the Wi-Fi devices window."
+    known.remember(hw, ip=ip)
+    progress("Paired. Connecting (this can take up to 30 seconds)…")
+    time.sleep(2)  # give the phone a moment to advertise its connect port
+    device = known.get(hw)
+    ok, result = reconnect(adb, device, progress=progress) if device else (False, "not remembered")
+    if ok:
+        known.remember(hw, model=adb_model(adb, result), address=result)
+        return True, f"Paired and connected ({result})."
+    return (
+        True,
+        f"Paired, but could not connect yet:\n{result}\n\n"
+        "Try Connect to address with the port from the Wireless debugging screen.",
+    )
+
+
+def adb_model(adb: Adb, serial: str) -> str:
+    try:
+        return adb.run("-s", serial, "shell", "getprop", "ro.product.model", timeout=10).stdout.strip()
+    except Exception:
+        return ""
+
+
 def reconnect(
     adb: Adb,
     device: KnownDevice,
-    scan: bool = True,
+    scan: bool | None = None,
     progress: Callable[[str], None] = lambda msg: None,
 ) -> tuple[bool, str]:
-    """Connect to a known phone. Returns (ok, address or explanation)."""
+    """Connect to a known phone. Returns (ok, address or explanation).
+
+    scan=None follows the wifi_port_scan setting.
+    """
+    if scan is None:
+        from phonnect.config import Config
+
+        scan = Config.load().wifi_port_scan
     tried: list[str] = []
     drop_offline(adb, device.ip or None)
 
@@ -282,5 +374,7 @@ def reconnect(
             tried.append(f"scan of {ip}: no open ports")
     elif not ip:
         tried.append("no known IP address to scan yet")
+    else:
+        tried.append("port scan turned off in the settings")
 
     return False, "\n".join(tried)

@@ -1,31 +1,38 @@
 name: Release
 
-# Push a tag like v0.2.0 (`just release 0.2.0` does it) to build the package
-# and publish a GitHub Release with the wheel and source archive attached.
+# Push a tag like v0.4.0 (`just release 0.4.0` does it) to build the package and publish
+# a GitHub Release with the wheel, the source archive and the installer scripts.
 on:
   push:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  # Tests and build run with a read-only token; only the publish job can write.
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7.6.0
         with:
           python-version: "3.13"
 
       - name: Check the tag matches the package version
+        id: version
         run: |
           version="$(uv run --quiet python -c 'import phonnect; print(phonnect.__version__)')"
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
             echo "Tag $GITHUB_REF_NAME does not match __version__ $version" >&2
             exit 1
           fi
-          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Unit tests
         run: uv run pytest -q
@@ -33,24 +40,74 @@ jobs:
       - name: Build wheel and sdist
         run: uv build
 
+      - name: Installer scripts, set to install this release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          sed "s/^DEFAULT_VERSION=\"\"/DEFAULT_VERSION=\"$VERSION\"/" scripts/install.sh > dist/install.sh
+          sed "s/\$DefaultVersion = \"\"/\$DefaultVersion = \"$VERSION\"/" scripts/install.ps1 > dist/install.ps1
+          cp scripts/uninstall.sh scripts/uninstall.ps1 dist/
+          grep -q "^DEFAULT_VERSION=\"$VERSION\"" dist/install.sh
+          grep -q "\$DefaultVersion = \"$VERSION\"" dist/install.ps1
+          sh -n dist/install.sh
+          ls -l dist
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write  # create the release
+      id-token: write  # build provenance
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: dist
+          path: dist
+
+      # Lets anyone check a download came from this workflow: gh attestation verify <file> --repo 3sztof/phonnect
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be  # v2.4.0
+        with:
+          subject-path: dist/*
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
-          wheel="phonnect-${VERSION}-py3-none-any.whl"
-          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${wheel}"
-          cat > notes.md <<EOF
-          ## Install / upgrade
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          ## Install or update
 
-          Requires [uv](https://docs.astral.sh/uv/) and scrcpy + adb (see the README).
+          **macOS / Linux** (in a terminal):
 
           \`\`\`sh
-          uv tool install --force --python ">=3.11" ${url}
-          phonnect install
+          curl -fsSL ${base}/install.sh | sh
           \`\`\`
+
+          **Windows** (in PowerShell):
+
+          \`\`\`powershell
+          irm ${base}/install.ps1 | iex
+          \`\`\`
+
+          The installer shows what it will install and where, and asks before installing uv, scrcpy or adb.
+          Already installed? Use **Update Phonnect** in the tray menu, or run \`phonnect update\`.
+
+          By hand, with [uv](https://docs.astral.sh/uv/): \`uv tool install --force --python ">=3.11" ${base}/phonnect-${VERSION}-py3-none-any.whl\`, then \`phonnect install\`.
+
+          Check that a file came from this release's build: \`gh attestation verify <file> --repo ${GITHUB_REPOSITORY}\`
           EOF
           gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
             --title "Phonnect $VERSION" \
-            --notes-file notes.md \
+            --notes-file "$RUNNER_TEMP/notes.md" \
             --generate-notes \
             --verify-tag

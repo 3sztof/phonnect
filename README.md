@@ -31,7 +31,7 @@ Phonnect stands on the shoulders of two excellent tools:
 Both are powerful, but they're command-line tools: you start them by hand every time, and wireless use means pairing codes, IP addresses and ports that change. **Phonnect does that part for you.** It sits in your tray (menu bar on macOS), notices when your phone connects, and opens the mirror automatically:
 
 - **Plug in the phone → the mirror window opens.** Close the window and it stays closed until you plug the phone in again.
-- **Wi-Fi made easy:** pair once from a small window, and Phonnect remembers the phone. It finds it again after Android changes the debugging port (after a reboot or network change), so reconnecting is one click, or automatic.
+- **Wi-Fi made easy:** pair once by scanning a QR code with the phone, and Phonnect remembers it. It finds it again after Android changes the debugging port (after a reboot or network change), so reconnecting is one click, or automatic.
 - **Nothing else to manage:** no console window, it starts at login, and only one copy runs. scrcpy and adb stay the standard tools from your OS's package manager; Phonnect just drives them.
 
 <p>
@@ -48,9 +48,12 @@ Mirror Pixel 7 (Wi-Fi)
 ───────────
 Audio                         >  Off · PC and phone · PC only
 Force landscape
-Wi-Fi                         >  Pair new phone… · Connect to address… · Manage Wi-Fi phones… · Disconnect all
-Settings                      >  Auto-launch on USB / Wi-Fi · Keep Wi-Fi connected · Show sidebar ·
-                                 Hide phone keyboard · Mouse buttons · Start at login · Open log / settings
+Wi-Fi                         >  Pair new phone (QR code or code)… · Connect to address… · Manage Wi-Fi phones… ·
+                                 Disconnect all
+Settings                      >  Auto-launch on USB / Wi-Fi · Keep Wi-Fi connected · Port scan · Show sidebar ·
+                                 Hide phone keyboard · Mouse buttons · Start at login · Check for updates ·
+                                 Open log / settings
+Update Phonnect to X.Y.Z…        only when there's a new release
 ───────────
 Quit
 ```
@@ -69,22 +72,25 @@ More in [docs/usage.md](docs/usage.md).
 
 ## Install
 
-You need **scrcpy + adb** and **[uv](https://docs.astral.sh/uv/)**:
-
-| | scrcpy + adb |
-|---|---|
-| Windows | `winget install Genymobile.scrcpy` |
-| macOS | `brew install scrcpy && brew install --cask android-platform-tools` |
-| Linux | `sudo apt install scrcpy adb` (or your distro's equivalent) |
-
-Then install the [latest release](https://github.com/3sztof/phonnect/releases/latest) with the command shown on its page, which looks like this:
+**macOS / Linux**, in a terminal:
 
 ```sh
-uv tool install --force --python ">=3.11" https://github.com/3sztof/phonnect/releases/download/v0.3.0/phonnect-0.3.0-py3-none-any.whl
-phonnect install
+curl -fsSL https://github.com/3sztof/phonnect/releases/latest/download/install.sh | sh
 ```
 
-`install` enables start at login, adds a Start menu entry (an app launcher entry on Linux) and starts the tray app. For installing from a clone with `just`, upgrading and uninstalling, see [docs/installation.md](docs/installation.md).
+**Windows**, in PowerShell:
+
+```powershell
+irm https://github.com/3sztof/phonnect/releases/latest/download/install.ps1 | iex
+```
+
+The installer walks you through it. First it shows what it will install and where (the app, its commands, start at login, a Start menu / Spotlight / app launcher entry), and what's already there. Nothing happens until you say yes. It asks separately before installing [uv](https://docs.astral.sh/uv/) (which installs Phonnect and the Python it needs), and **scrcpy + adb** with your package manager (winget, Homebrew, apt, pacman, …). Everything goes into your user account, and nothing on your phone is changed.
+
+**Updating:** **Update Phonnect** appears in the tray menu when there's a new release. Or run `phonnect update`.
+
+**Uninstalling:** the same way, with `uninstall.sh` / `uninstall.ps1` in place of `install`. It asks whether to keep your settings, and leaves uv, scrcpy and adb in place.
+
+Installing by hand, from a clone, and what goes where: [docs/installation.md](docs/installation.md).
 
 ## Set up the phone (once)
 
@@ -109,6 +115,7 @@ That's it: the mirror window opens. **New to this?** Follow the [step-by-step ph
 - [Wi-Fi](docs/wifi.md): pairing, connecting, how reconnecting works
 - [Troubleshooting](docs/troubleshooting.md): no window on plug-in, offline phones, black screens in secure apps, Linux and macOS notes
 - [Development](docs/development.md): how it works, tests, releasing
+- [Security](SECURITY.md): reporting a problem privately, what Phonnect does on your network
 
 The original PowerShell + VBS version (Windows only) is on the [`legacy-windows`](https://github.com/3sztof/phonnect/tree/legacy-windows) branch.
 

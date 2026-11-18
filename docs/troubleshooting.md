@@ -2,6 +2,8 @@
 
 Start with `phonnect doctor`. It checks scrcpy, adb, tray support and connected phones, and explains what it finds. `phonnect log` shows what the app saw.
 
+> **Sharing output in an issue?** `doctor`, the log and `wireless-devices.json` contain your phones' serial numbers and IP addresses. Serials are lasting device IDs, so replace them with something like `SERIAL` before pasting.
+
 ## Plugging in the phone doesn't open a window
 
 - **USB debugging is off.** The PC beeps, but only a file-transfer device appears, and `adb devices` doesn't list the phone. Turn on *Developer options → USB debugging*. If the phone is also connected over Wi-Fi, `doctor` and the log say this explicitly.

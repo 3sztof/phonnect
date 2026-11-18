@@ -1,0 +1,11 @@
+name: Feature request
+description: An idea for Phonnect
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Phonnect to do?
+      description: Describe the situation you're in and what would help. How it could work is welcome, but optional.
+    validations:
+      required: true

@@ -13,7 +13,7 @@ install:
 # Install uv if needed (asks first), the app and its dependencies; enable start at login; start the tray
 [unix]
 install:
-    sh "{{justfile_directory()}}/scripts/install.sh" "{{justfile_directory()}}"
+    sh "{{justfile_directory()}}/scripts/install.sh" --source "{{justfile_directory()}}"
 
 # Stop the app, remove start at login, settings, logs and the uv tool
 uninstall:

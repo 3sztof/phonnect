@@ -62,3 +62,14 @@ Quitting SHALL stop watching for phones, close the sidebars, and restore every p
 #### Scenario: Quit while mirroring in landscape
 - **WHEN** the user quits while a phone is mirrored with Force landscape on
 - **THEN** the phone's own rotation setting is restored, and the mirror window stays open
+
+### Requirement: Update entries
+The tray menu SHALL show an Update Phonnect entry only when a newer Phonnect release exists, a scrcpy entry only when a newer scrcpy exists, and the installed Phonnect version in the Settings menu.
+
+#### Scenario: New release
+- **WHEN** the daily check finds a newer Phonnect release
+- **THEN** "Update Phonnect to X.Y.Z…" appears above Quit, and the icon's tooltip mentions it
+
+#### Scenario: No update
+- **WHEN** everything is up to date
+- **THEN** no update entries are shown

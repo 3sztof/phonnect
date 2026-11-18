@@ -5,3 +5,14 @@ dist/
 build/
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
+
+# Editors
+.idea/
+.vscode/
+
+# Local files that should never be committed
+.env
+.env.*
+*.log
+notes.md

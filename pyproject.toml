@@ -10,7 +10,11 @@ dependencies = [
     "pystray>=0.19.5",
     "Pillow>=13.0",
     "darkdetect>=0.8",
+    "segno>=1.6",
     "sv-ttk>=2.6; sys_platform == 'win32'",
+    # The tray hands UI updates to the main thread with PyObjCTools.AppHelper (pystray pulls it in too).
+    "pyobjc-framework-Cocoa>=10; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'",
 ]
 classifiers = [
     "Environment :: MacOS X",

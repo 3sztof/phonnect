@@ -16,12 +16,14 @@ import math
 from pathlib import Path
 
 from phonnect import paths
-from phonnect.osutil import IS_WINDOWS
+from phonnect.osutil import IS_MAC, IS_WINDOWS
 
 GREEN = (61, 220, 132, 255)  # a phone is connected
 RED = (235, 87, 87, 255)  # adb/scrcpy not found
 BACKGROUND = (32, 33, 36, 255)  # app icon tile
 WHITE = (245, 245, 245, 255)
+PURE_WHITE = (255, 255, 255, 255)
+MENU_BAR_BLACK = (0, 0, 0, 220)
 DARK = (40, 40, 40, 255)
 
 
@@ -84,16 +86,24 @@ def app_icon(size: int = 256):
     return tile
 
 
-def tray_icon(state: str):
-    """state: 'connected' (green phone), 'waiting' (outline only) or 'problem' (red phone)."""
+def tray_stroke():
+    """Outline colour matching the other icons in the tray / menu bar."""
     if IS_WINDOWS:
         from phonnect.theme import system_is_light
 
-        stroke = DARK if system_is_light() else WHITE
-    else:
-        stroke = (160, 160, 160, 255)  # readable on light and dark menu bars / panels
+        return DARK if system_is_light() else WHITE
+    if IS_MAC:
+        from phonnect.theme import is_dark
+
+        # Menu bar icons are white in dark mode and black in light mode.
+        return PURE_WHITE if is_dark() else MENU_BAR_BLACK
+    return PURE_WHITE  # most Linux panels are dark (GNOME's always is)
+
+
+def tray_icon(state: str, stroke=None):
+    """state: 'connected' (green phone), 'waiting' (outline only) or 'problem' (red phone)."""
     fill = {"connected": GREEN, "problem": RED}.get(state)
-    return draw_symbol(64, stroke, phone_fill=fill)
+    return draw_symbol(64, stroke or tray_stroke(), phone_fill=fill)
 
 
 ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)

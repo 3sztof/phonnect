@@ -30,6 +30,11 @@ class Config:
     content_scale: int = 100
     # Button bar docked to the right of each mirror window.
     show_sidebar: bool = True
+    # Ask GitHub once a day whether Phonnect or scrcpy has a new release (shown in the tray menu).
+    check_updates: bool = True
+    # When mDNS and the last address fail, look for a phone's new Wireless debugging port by
+    # probing its last known IP. Turn off on networks where port scans trip security alerts.
+    wifi_port_scan: bool = True
     # Desktop mode: size/density of the second, PC-sized screen (WIDTHxHEIGHT/DPI).
     desktop_display: str = "1920x1080/160"
     # What each secondary mouse button does in mirror windows:

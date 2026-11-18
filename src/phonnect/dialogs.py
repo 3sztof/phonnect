@@ -15,19 +15,34 @@ from phonnect import theme
 from phonnect.adb import Adb
 from phonnect.wireless import (
     KnownDevices,
+    QrPairing,
+    adb_model,
     connect_verified,
     drop_offline,
-    paired_guid,
+    new_qr_pairing,
+    pair_and_connect,
     reconnect,
     split_address,
     status_of,
+    wait_for_qr_scan,
     wireless_serial_for,
 )
 
-PAIR_HELP = (
+PAIR_HELP_NO_QR = (
     "On the phone: Settings > System > Developer options > Wireless debugging >\n"
     "Pair device with pairing code.\n\n"
     "Enter the IP address & port and the 6-digit code shown in that popup.\n"
+    "The phone and this computer must be on the same network."
+)
+
+PAIR_HELP = (
+    "Or pair with a code: on the phone, tap 'Pair device with pairing code', then enter\n"
+    "the IP address & port and the 6-digit code shown in that popup."
+)
+QR_HELP = (
+    "On the phone: Settings > System > Developer options >\n"
+    "Wireless debugging > Pair device with QR code,\n"
+    "then scan this code.\n\n"
     "The phone and this computer must be on the same network."
 )
 CONNECT_HELP = (
@@ -111,53 +126,70 @@ def _form(parent, kind: str, adb: Adb, known: KnownDevices, on_finished):
     win.attributes("-topmost", True)
     frame = ttk.Frame(win, padding=16)
     frame.grid()
-    ttk.Label(frame, text=PAIR_HELP if kind == "pair" else CONNECT_HELP, justify="left").grid(
-        row=0, column=0, columnspan=2, sticky="w", pady=(0, 12)
-    )
-    ttk.Label(frame, text="IP address:port").grid(row=1, column=0, sticky="w")
+    worker = _Worker(win)
+    row = 0
+    qr_stop = threading.Event()
+    win.bind("<Destroy>", lambda e: qr_stop.set() if e.widget is win else None, add="+")
+    qr_image = _qr_image(win, pairing := new_qr_pairing()) if kind == "pair" else None
+    if qr_image is not None:
+        ttk.Label(frame, image=qr_image).grid(row=row, column=0, sticky="nw", padx=(0, 14))
+        side = ttk.Frame(frame)
+        side.grid(row=row, column=1, sticky="nw")
+        ttk.Label(side, text=QR_HELP, justify="left").pack(anchor="w")
+        qr_status = ttk.Label(
+            side, text="Waiting for the phone to scan the code…", foreground=pal.muted, wraplength=260, justify="left"
+        )
+        qr_status.pack(anchor="w", pady=(12, 0))
+        ttk.Separator(frame).grid(row=row + 1, column=0, columnspan=2, sticky="we", pady=12)
+        row += 2
+
+        def qr_work(progress):
+            address = wait_for_qr_scan(adb, pairing, qr_stop.is_set)
+            if address is None:
+                return None
+            progress(f"The phone scanned the code ({address}).")
+            return pair_and_connect(adb, known, address, pairing.password, progress)
+
+        def qr_done(result):
+            if result is None:
+                if not qr_stop.is_set():
+                    qr_status.config(
+                        text="The code expired. Close this window and open it again.", foreground=pal.error
+                    )
+                return
+            ok, msg = result
+            qr_status.config(text=msg, foreground=pal.ok if ok else pal.error)
+            if ok:
+                on_finished(True, msg)
+                win.after(1500, win.destroy)
+
+        _Worker(win).submit(qr_work, qr_done, lambda m: qr_status.config(text=m, foreground=pal.muted))
+    help_text = (PAIR_HELP if qr_image is not None else PAIR_HELP_NO_QR) if kind == "pair" else CONNECT_HELP
+    ttk.Label(frame, text=help_text, justify="left").grid(row=row, column=0, columnspan=2, sticky="w", pady=(0, 12))
+    ttk.Label(frame, text="IP address:port").grid(row=row + 1, column=0, sticky="w")
     address = ttk.Entry(frame, width=30)
-    address.grid(row=1, column=1, sticky="we", pady=2)
+    address.grid(row=row + 1, column=1, sticky="we", pady=2)
     code = None
     if kind == "pair":
-        ttk.Label(frame, text="Pairing code").grid(row=2, column=0, sticky="w")
+        ttk.Label(frame, text="Pairing code").grid(row=row + 2, column=0, sticky="w")
         code = ttk.Entry(frame, width=30)
-        code.grid(row=2, column=1, sticky="we", pady=2)
+        code.grid(row=row + 2, column=1, sticky="we", pady=2)
     status = ttk.Label(frame, text="", foreground=pal.muted, wraplength=420, justify="left")
-    status.grid(row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
+    status.grid(row=row + 3, column=0, columnspan=2, sticky="w", pady=(10, 0))
     buttons = ttk.Frame(frame)
-    buttons.grid(row=4, column=0, columnspan=2, sticky="e", pady=(12, 0))
-    worker = _Worker(win)
+    buttons.grid(row=row + 4, column=0, columnspan=2, sticky="e", pady=(12, 0))
 
     def work(progress):
         addr = address.get().strip()
         if not split_address(addr):
             return False, "Enter the address as IP:PORT, for example 192.168.1.20:37099."
         if kind == "pair":
-            progress("Pairing…")
-            ok, out = adb.pair(addr, code.get().strip() if code else "")
-            if not ok:
-                return False, f"Pairing failed:\n{out or 'no output from adb'}"
-            hw = paired_guid(out)
-            ip = split_address(addr)[0]
-            if not hw:
-                return True, "Paired. Now use Connect in the Wi-Fi devices window."
-            known.remember(hw, ip=ip)
-            progress("Paired. Connecting (this can take up to 30 seconds)…")
-            time.sleep(2)  # give the phone a moment to advertise its connect port
-            ok, result = reconnect(adb, known.get(hw), progress=progress)
-            if ok:
-                known.remember(hw, model=_model(adb, result), address=result)
-                return True, f"Paired and connected ({result})."
-            return (
-                True,
-                f"Paired, but could not connect yet:\n{result}\n\n"
-                "Try Connect to address with the port from the Wireless debugging screen.",
-            )
+            return pair_and_connect(adb, known, addr, code.get().strip() if code else "", progress)
         progress(f"Connecting to {addr}…")
         drop_offline(adb, split_address(addr)[0])
         ok, out = connect_verified(adb, addr)
         if ok:
-            known.remember(adb.hardware_id(addr), model=_model(adb, addr), address=addr)
+            known.remember(adb.hardware_id(addr), model=adb_model(adb, addr), address=addr)
             return True, f"Connected ({addr})."
         return False, out
 
@@ -183,10 +215,25 @@ def _form(parent, kind: str, adb: Adb, known: KnownDevices, on_finished):
 
 
 def _model(adb: Adb, serial: str) -> str:
+    return adb_model(adb, serial)
+
+
+def _qr_image(win, pairing: QrPairing):
+    """The pairing QR code as a Tk image (dark on white, so phones read it in dark mode too), or None."""
     try:
-        return adb.run("-s", serial, "shell", "getprop", "ro.product.model", timeout=10).stdout.strip()
+        import base64
+        import io
+        import tkinter as tk
+
+        import segno
+
+        buf = io.BytesIO()
+        segno.make(pairing.text, error="m").save(buf, kind="png", scale=6, border=3, dark="black", light="white")
+        image = tk.PhotoImage(master=win, data=base64.b64encode(buf.getvalue()))
+        win._qr_image = image  # keep a reference, or Tk drops it
+        return image
     except Exception:
-        return ""
+        return None
 
 
 def _standalone_form(kind: str, adb: Adb) -> int:

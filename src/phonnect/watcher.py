@@ -177,7 +177,8 @@ class Watcher:
     def phones(self) -> list[tuple[str, list[Device], bool]]:
         """Connected phones as (hardware id, adb devices for it USB-first, being mirrored)."""
         with self._lock:
-            self._reap()
+            # No reaping here: this runs on the tray's UI thread, and reaping a closed window
+            # restores phone settings over adb. The watcher loop does it within a second.
             grouped: dict[str, list[Device]] = {}
             for d in sorted(self.devices.values(), key=lambda d: d.transport != USB):
                 grouped.setdefault(self.hw_ids.get(d.serial, d.serial), []).append(d)
