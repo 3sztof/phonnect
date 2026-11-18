@@ -3,7 +3,8 @@ schema: spec-driven
 # Constraints every change must respect. These are design decisions already made;
 # changing one needs its own proposal that says so explicitly.
 context: |
-  Product: a small tray app that opens scrcpy automatically when an Android phone connects
+  Product: Phonnect (formerly scrcpy-autolaunch; package and command: phonnect), a small tray app
+  that opens scrcpy automatically when an Android phone connects
   (USB or Wi-Fi). Main value: it gets out of the way. Prefer zero-click defaults over options.
 
   Platforms: designs and tasks cover Windows, macOS and Linux. Windows is the primary,

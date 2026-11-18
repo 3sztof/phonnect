@@ -2,7 +2,7 @@ Third-party notices
 ===================
 
 The app icon and tray icon are drawn from the "monitor-smartphone" icon of
-Lucide (https://lucide.dev), reproduced in src/scrcpy_autolaunch/icons.py.
+Lucide (https://lucide.dev), reproduced in src/phonnect/icons.py.
 
 ISC License
 

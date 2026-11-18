@@ -14,10 +14,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, gui_python
+from phonnect.osutil import IS_MAC, IS_WINDOWS, gui_python
 
-LABEL = "io.github.3sztof.scrcpy-autolaunch"
-TRAY_EXE = "scrcpy-autolaunch-tray"
+LABEL = "io.github.3sztof.phonnect"
+TRAY_EXE = "phonnect-tray"
 
 
 def tray_command() -> list[str]:
@@ -30,18 +30,18 @@ def tray_command() -> list[str]:
     found = shutil.which(TRAY_EXE)
     if found:
         return [found]
-    return [gui_python(), "-m", "scrcpy_autolaunch", "tray"]
+    return [gui_python(), "-m", "phonnect", "tray"]
 
 
 def entry_path() -> Path:
     home = Path.home()
     if IS_WINDOWS:
         appdata = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming")
-        return appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "scrcpy-autolaunch.lnk"
+        return appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "phonnect.lnk"
     if IS_MAC:
         return home / "Library" / "LaunchAgents" / f"{LABEL}.plist"
     config = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
-    return config / "autostart" / "scrcpy-autolaunch.desktop"
+    return config / "autostart" / "phonnect.desktop"
 
 
 def is_enabled() -> bool:
@@ -64,7 +64,7 @@ def enable(cmd: list[str] | None = None) -> Path:
 def _icon_file(suffix: str) -> str:
     """Path of the generated app icon, or '' if it can't be written (the shortcut still works)."""
     try:
-        from scrcpy_autolaunch.icons import ensure_icon_files
+        from phonnect.icons import ensure_icon_files
 
         ico, png = ensure_icon_files()
         return str(ico if suffix == ".ico" else png)
@@ -80,6 +80,32 @@ def disable() -> bool:
     return True
 
 
+def legacy_entries() -> list[Path]:
+    """Start-at-login and menu entries left by the app's old name (scrcpy-autolaunch)."""
+    home = Path.home()
+    if IS_WINDOWS:
+        programs = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming") / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+        candidates = [programs / "Startup" / "scrcpy-autolaunch.lnk", programs / "scrcpy-autolaunch.lnk"]
+    elif IS_MAC:
+        candidates = [home / "Library" / "LaunchAgents" / "io.github.3sztof.scrcpy-autolaunch.plist"]
+    else:
+        config = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
+        data = Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
+        candidates = [config / "autostart" / "scrcpy-autolaunch.desktop", data / "applications" / "scrcpy-autolaunch.desktop"]
+    return [p for p in candidates if p.exists()]
+
+
+def remove_legacy_entries() -> list[Path]:
+    removed = []
+    for p in legacy_entries():
+        try:
+            p.unlink()
+            removed.append(p)
+        except OSError:
+            pass
+    return removed
+
+
 # ── app menu entry (Start menu / Linux app launcher) ─────────────────────────
 
 
@@ -88,11 +114,11 @@ def menu_entry_path() -> Path | None:
     home = Path.home()
     if IS_WINDOWS:
         appdata = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming")
-        return appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "scrcpy-autolaunch.lnk"
+        return appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "phonnect.lnk"
     if IS_MAC:
         return None  # would need an .app bundle
     data = Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
-    return data / "applications" / "scrcpy-autolaunch.desktop"
+    return data / "applications" / "phonnect.desktop"
 
 
 def add_menu_entry(cmd: list[str] | None = None) -> Path | None:
@@ -141,8 +167,8 @@ def linux_desktop_entry(cmd: list[str], autostart: bool = True, icon: str = "") 
     lines = [
         "[Desktop Entry]",
         "Type=Application",
-        "Name=scrcpy-autolaunch",
-        "Comment=Open scrcpy when an Android device connects",
+        "Name=Phonnect",
+        "Comment=Your phone on your desktop, the moment it connects",
         "Exec=" + " ".join(_desktop_quote(a) for a in cmd),
         f"Icon={icon or 'smartphone'}",
         "Terminal=false",
@@ -158,7 +184,7 @@ def _write_windows_shortcut(path: Path, cmd: list[str], icon: str = "") -> None:
         "$s.TargetPath = $env:SAL_TARGET;"
         "$s.Arguments = $env:SAL_ARGS;"
         "$s.WorkingDirectory = $env:USERPROFILE;"
-        "$s.Description = 'scrcpy-autolaunch tray';"
+        "$s.Description = 'Phonnect: your phone on your desktop';"
         "if ($env:SAL_ICON) { $s.IconLocation = $env:SAL_ICON + ',0' };"
         "$s.Save()"
     )

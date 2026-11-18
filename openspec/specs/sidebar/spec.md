@@ -40,7 +40,7 @@ The sidebar SHALL offer: a screenshot saved to the user's Pictures folder, Force
 
 #### Scenario: Screenshot
 - **WHEN** the user presses Screenshot
-- **THEN** a PNG of the phone screen is saved to Pictures/scrcpy-autolaunch, and right-clicking the button opens that folder
+- **THEN** a PNG of the phone screen is saved to Pictures/Phonnect, and right-clicking the button opens that folder
 
 #### Scenario: Shell
 - **WHEN** the user presses Shell

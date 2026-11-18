@@ -2,7 +2,7 @@
 
 ## Why
 
-Tracking issue: [#2](https://github.com/3sztof/scrcpy-autolaunch/issues/2).
+Tracking issue: [#2](https://github.com/3sztof/phonnect/issues/2).
 
 When the phone is mirrored on the computer, its own screen is usually not needed: it drains the battery and lights up on the desk. Keeping it dark while mirroring is a common feature of other scrcpy front ends.
 

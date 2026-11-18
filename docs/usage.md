@@ -34,7 +34,7 @@ A slim button bar next to each mirror window (on by default; **Settings → Show
 | Back, Home, Recent apps | The phone's navigation buttons |
 | Notifications, Quick settings | Pull down the notification shade or the quick-settings panel |
 | Volume up / down, Power | The phone's side buttons. Power turns the phone screen off and on; the mirror keeps working |
-| Screenshot | Saves a PNG to `Pictures\scrcpy-autolaunch`. Right-click it to open that folder |
+| Screenshot | Saves a PNG to `Pictures\phonnect`. Right-click it to open that folder |
 | Force landscape | Same as the tray setting (see below) |
 | Desktop mode | Opens the phone's desktop in a second window (see below) |
 | Shell | Opens `adb shell` for the phone in your terminal app |
@@ -123,7 +123,7 @@ See [scrcpy's shortcuts](https://github.com/Genymobile/scrcpy/blob/master/doc/sh
 
 | Command | |
 |---|---|
-| `scrcpy-autolaunch install` / `uninstall [--purge]` | Enable or remove start at login and the app menu entry. `--purge` also deletes settings and logs |
+| `phonnect install` / `uninstall [--purge]` | Enable or remove start at login and the app menu entry. `--purge` also deletes settings and logs |
 | `start` / `stop` | Start or stop the tray app in the background |
 | `status` | Running? Start at login? Where are the tools and files? |
 | `doctor` | Check scrcpy, adb, tray support and connected phones, with hints |
@@ -139,7 +139,7 @@ From a clone, `just start`, `just stop`, `just status`, `just doctor` and `just 
 
 ## Config file
 
-Settings changed in the tray are saved immediately. You can also edit the file directly, then restart the app (`scrcpy-autolaunch stop`, then `start`):
+Settings changed in the tray are saved immediately. You can also edit the file directly, then restart the app (`phonnect stop`, then `start`):
 
 ```json
 {
@@ -173,10 +173,10 @@ Settings changed in the tray are saved immediately. You can also edit the file d
 
 | | Windows | macOS | Linux |
 |---|---|---|---|
-| Settings | `%LOCALAPPDATA%\scrcpy-autolaunch\config.json` | `~/Library/Application Support/scrcpy-autolaunch/config.json` | `~/.config/scrcpy-autolaunch/config.json` |
-| Log, remembered phones, icons | same folder | same folder | `~/.local/state/scrcpy-autolaunch/` |
-| Start at login | `shell:startup\scrcpy-autolaunch.lnk` | `~/Library/LaunchAgents/io.github.3sztof.scrcpy-autolaunch.plist` | `~/.config/autostart/scrcpy-autolaunch.desktop` |
-| App menu entry | Start menu: `scrcpy-autolaunch.lnk` | none | `~/.local/share/applications/scrcpy-autolaunch.desktop` |
+| Settings | `%LOCALAPPDATA%\phonnect\config.json` | `~/Library/Application Support/phonnect/config.json` | `~/.config/phonnect/config.json` |
+| Log, remembered phones, icons | same folder | same folder | `~/.local/state/phonnect/` |
+| Start at login | `shell:startup\phonnect.lnk` | `~/Library/LaunchAgents/io.github.3sztof.phonnect.plist` | `~/.config/autostart/phonnect.desktop` |
+| App menu entry | Start menu: `phonnect.lnk` | none | `~/.local/share/applications/phonnect.desktop` |
 | App | `uv tool dir` | `uv tool dir` | `uv tool dir` |
 
 The log is capped at about 2 MB.

@@ -17,11 +17,11 @@ import socketserver
 import threading
 from typing import Callable
 
-from scrcpy_autolaunch import paths
+from phonnect import paths
 
 log = logging.getLogger(__name__)
 
-ENV_VAR = "SCRCPY_AUTOLAUNCH_CONTROL"
+ENV_VAR = "PHONNECT_CONTROL"
 MAX_REQUEST = 64 * 1024
 
 
@@ -79,7 +79,7 @@ def parse_env(value: str | None) -> tuple[str, str] | None:
 
 
 def write_endpoint(address: str, token: str) -> None:
-    """Let `scrcpy-autolaunch mirror` find the running tray. Readable by this user only."""
+    """Let `phonnect mirror` find the running tray. Readable by this user only."""
     path = paths.state_dir() / "control"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)

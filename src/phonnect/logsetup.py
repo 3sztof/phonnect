@@ -4,9 +4,9 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 
-from scrcpy_autolaunch import paths
+from phonnect import paths
 
-LOGGER = "scrcpy_autolaunch"
+LOGGER = "phonnect"
 FORMAT = logging.Formatter("%(asctime)s  %(levelname)-7s %(message)s", "%Y-%m-%d %H:%M:%S")
 
 

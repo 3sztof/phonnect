@@ -1,4 +1,4 @@
-"""Command line interface: `scrcpy-autolaunch <command>`."""
+"""Command line interface: `phonnect <command>`."""
 
 from __future__ import annotations
 
@@ -11,15 +11,15 @@ import sys
 import time
 from pathlib import Path
 
-from scrcpy_autolaunch import __version__, autostart, paths
-from scrcpy_autolaunch.adb import WIRELESS, Adb
-from scrcpy_autolaunch.config import Config
-from scrcpy_autolaunch.instance import InstanceLock, running_pid
-from scrcpy_autolaunch.logsetup import setup_logging
-from scrcpy_autolaunch.osutil import IS_LINUX, IS_WINDOWS, spawn_detached
-from scrcpy_autolaunch.tools import find_tool, install_hint, scrcpy_version
+from phonnect import __version__, autostart, paths
+from phonnect.adb import WIRELESS, Adb
+from phonnect.config import Config
+from phonnect.instance import InstanceLock, running_pid
+from phonnect.logsetup import setup_logging
+from phonnect.osutil import IS_LINUX, IS_WINDOWS, spawn_detached
+from phonnect.tools import find_tool, install_hint, scrcpy_version
 
-log = logging.getLogger("scrcpy_autolaunch")
+log = logging.getLogger("phonnect")
 
 
 # ── shared helpers ───────────────────────────────────────────────────────────
@@ -46,15 +46,15 @@ def require_adb(cfg: Config) -> Adb:
 def attach_helpers(watcher):
     """Give a watcher what the tray and `run` both need: setting keepers, the
     control server for sidebars, and themed scrcpy title bars."""
-    from scrcpy_autolaunch.control import ControlServer
-    from scrcpy_autolaunch.phone_state import DensityKeeper, RotationKeeper
+    from phonnect.control import ControlServer
+    from phonnect.phone_state import DensityKeeper, RotationKeeper
 
     watcher.rotation = RotationKeeper(watcher.adb, watcher.online_serial)
     watcher.density = DensityKeeper(watcher.adb, watcher.online_serial)
     try:
         server = ControlServer(watcher.handle_control).start()
         watcher.control = (server.address, server.token)
-        from scrcpy_autolaunch.control import write_endpoint
+        from phonnect.control import write_endpoint
 
         write_endpoint(server.address, server.token)
     except OSError as exc:
@@ -77,7 +77,7 @@ def cmd_run(args) -> int:
     setup_logging(to_file=True, to_console=True)
     lock = InstanceLock()
     if not lock.acquire():
-        print(f"Already running (pid {running_pid()}). Stop it with: scrcpy-autolaunch stop")
+        print(f"Already running (pid {running_pid()}). Stop it with: phonnect stop")
         return 1
     with lock:
         cfg = Config.load()
@@ -85,7 +85,7 @@ def cmd_run(args) -> int:
         if problem:
             log.error(problem)
             return 1
-        from scrcpy_autolaunch.watcher import Watcher
+        from phonnect.watcher import Watcher
 
         watcher = Watcher(cfg, Adb(adb), scrcpy, version)
         attach_helpers(watcher)
@@ -97,7 +97,7 @@ def cmd_run(args) -> int:
             watcher.stop()
             watcher.restore_all_phone_settings()
         finally:
-            from scrcpy_autolaunch.control import remove_endpoint
+            from phonnect.control import remove_endpoint
 
             remove_endpoint()
     return 0
@@ -116,7 +116,7 @@ def cmd_tray(args) -> int:
             adb, scrcpy, version, problem = resolve_tools(cfg)
             if problem:
                 log.error(problem)
-            from scrcpy_autolaunch.tray import run_tray
+            from phonnect.tray import run_tray
 
             run_tray(cfg, Adb(adb) if adb else None, scrcpy, version, problem)
         except Exception:
@@ -147,7 +147,7 @@ def cmd_stop(args) -> int:
         print("Not running.")
         return 0
     # Ask the app to quit, so it can put back what it changed on the phones first.
-    from scrcpy_autolaunch import control
+    from phonnect import control
 
     endpoint = control.read_endpoint()
     if endpoint is not None:
@@ -193,7 +193,7 @@ def cmd_status(args) -> int:
 
 def cmd_doctor(args) -> int:
     ok = True
-    print(f"scrcpy-autolaunch {__version__}, Python {sys.version.split()[0]} ({sys.executable})")
+    print(f"Phonnect {__version__}, Python {sys.version.split()[0]} ({sys.executable})")
     cfg = Config.load()
     adb, scrcpy, version, problem = resolve_tools(cfg)
     print(f"scrcpy: {scrcpy or 'NOT FOUND'}")
@@ -239,13 +239,51 @@ def cmd_doctor(args) -> int:
     return 0 if ok else 1
 
 
+def stop_legacy_app() -> bool:
+    """Ask a still-running scrcpy-autolaunch (the app's old name) to quit, so it frees its folder."""
+    from phonnect import control
+    from phonnect.sidebar import process_alive
+
+    old = paths.state_dir(paths.LEGACY_APP)
+    try:
+        pid = int((old / "instance.pid").read_text(encoding="ascii").strip())
+    except (OSError, ValueError):
+        return False
+    if not process_alive(pid):
+        return False  # stale pid file
+    endpoint = control.parse_env((old / "control").read_text(encoding="ascii") if (old / "control").exists() else None)
+    if endpoint is not None:
+        try:
+            control.request(*endpoint, {"cmd": "quit"}, timeout=3)
+        except OSError:
+            pass
+    for _ in range(50):
+        if not process_alive(pid):
+            return True
+        time.sleep(0.1)
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        pass
+    return True
+
+
 def cmd_install(args) -> int:
+    # Coming from the old name (scrcpy-autolaunch): stop it, move its data, drop its entries.
+    if stop_legacy_app():
+        print("Stopped the old scrcpy-autolaunch app.")
+    for line in paths.migrate_from_legacy():
+        print(f"Settings: {line}")
+    for p in autostart.remove_legacy_entries():
+        print(f"Removed old entry: {p}")
     path = autostart.enable()
     print(f"Start at login enabled: {path}")
     if (menu := autostart.add_menu_entry()) is not None:
         print(f"App menu entry: {menu}")
     if (legacy := legacy_startup_entry()) is not None:
         print(f"warning: old PowerShell watcher found in Startup: {legacy} (see README, 'Migrating from legacy')")
+    if shutil.which("scrcpy-autolaunch"):
+        print("Note: the old scrcpy-autolaunch command is still installed. Remove it with: uv tool uninstall scrcpy-autolaunch")
     if args.no_start:
         return 0
     return cmd_start(args)
@@ -257,8 +295,11 @@ def cmd_uninstall(args) -> int:
         print(f"Removed start-at-login entry: {autostart.entry_path()}")
     if autostart.remove_menu_entry():
         print(f"Removed app menu entry: {autostart.menu_entry_path()}")
+    for p in autostart.remove_legacy_entries():
+        print(f"Removed old entry: {p}")
     if args.purge:
-        for d in {paths.config_dir(), paths.state_dir()}:
+        dirs = {paths.config_dir(), paths.state_dir(), paths.config_dir(paths.LEGACY_APP), paths.state_dir(paths.LEGACY_APP)}
+        for d in dirs:
             if d.exists():
                 shutil.rmtree(d, ignore_errors=True)
                 print(f"Deleted {d}")
@@ -288,7 +329,7 @@ def cmd_connect(args) -> int:
     adb = require_adb(Config.load())
     if not args.address:
         return _dialog(adb, "devices")
-    from scrcpy_autolaunch.wireless import KnownDevices, connect_verified, drop_offline, split_address
+    from phonnect.wireless import KnownDevices, connect_verified, drop_offline, split_address
 
     if split_address(args.address):
         drop_offline(adb, split_address(args.address)[0])
@@ -301,7 +342,7 @@ def cmd_connect(args) -> int:
 
 def cmd_wifi(args) -> int:
     """List remembered/paired phones, or reconnect to one."""
-    from scrcpy_autolaunch.wireless import KnownDevices, reconnect, status_of
+    from phonnect.wireless import KnownDevices, reconnect, status_of
 
     adb = require_adb(Config.load())
     known = KnownDevices()
@@ -309,7 +350,7 @@ def cmd_wifi(args) -> int:
     if not args.reconnect:
         current = adb.devices()
         if not devices:
-            print("No paired or remembered phones. Pair one with: scrcpy-autolaunch pair")
+            print("No paired or remembered phones. Pair one with: phonnect pair")
         for d in devices:
             print(f"{d.label:20} {status_of(d, current):16} last={d.address or '-':22} ip={d.ip or '-':16} id={d.hw_id}")
         return 0
@@ -368,11 +409,11 @@ def cmd_dialog(args) -> int:
 
 def cmd_mirror(args) -> int:
     """Ask the running tray app to open a mirror window."""
-    from scrcpy_autolaunch import control
+    from phonnect import control
 
     endpoint = control.read_endpoint()
     if endpoint is None or running_pid() is None:
-        print("scrcpy-autolaunch isn't running. Start it with: scrcpy-autolaunch start")
+        print("Phonnect isn't running. Start it with: phonnect start")
         return 1
     try:
         reply = control.request(*endpoint, {"cmd": "mirror", "phone": args.phone})
@@ -387,14 +428,14 @@ def cmd_mirror(args) -> int:
 
 
 def cmd_sidebar(args) -> int:
-    from scrcpy_autolaunch.sidebar import run_sidebar
+    from phonnect.sidebar import run_sidebar
 
     adb = os.environ.get("ADB") or require_adb(Config.load()).path
     return run_sidebar(adb, args.serial, args.hw, args.pid, args.name)
 
 
 def _dialog(adb: Adb, kind: str, message: str = "") -> int:
-    from scrcpy_autolaunch.dialogs import run_dialog
+    from phonnect.dialogs import run_dialog
 
     code = run_dialog(kind, adb, message)
     if code == 3 and sys.stderr is not None:
@@ -407,8 +448,8 @@ def _dialog(adb: Adb, kind: str, message: str = "") -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="scrcpy-autolaunch",
-        description="Open scrcpy automatically when an Android device connects.",
+        prog="phonnect",
+        description="Phonnect: your phone on your desktop, the moment it connects (built on scrcpy).",
     )
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = p.add_subparsers(dest="command", metavar="<command>")
@@ -471,9 +512,12 @@ def main(argv: list[str] | None = None) -> None:
     if not getattr(args, "func", None):
         parser.print_help()
         sys.exit(0)
+    if args.command in ("run", "tray", "start", "status", "doctor"):
+        paths.migrate_from_legacy()  # no-op unless upgrading from scrcpy-autolaunch
     sys.exit(args.func(args))
 
 
 def tray_main() -> None:
-    """Entry point of the windowless `scrcpy-autolaunch-tray` executable."""
+    """Entry point of the windowless `phonnect-tray` executable."""
+    paths.migrate_from_legacy()
     sys.exit(cmd_tray(None))

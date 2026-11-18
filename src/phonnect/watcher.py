@@ -19,9 +19,9 @@ import time
 from dataclasses import dataclass
 from typing import Callable
 
-from scrcpy_autolaunch.adb import EMULATOR, USB, WIRELESS, Adb, Device
-from scrcpy_autolaunch.config import Config
-from scrcpy_autolaunch.osutil import NO_WINDOW, gui_python, open_terminal
+from phonnect.adb import EMULATOR, USB, WIRELESS, Adb, Device
+from phonnect.config import Config
+from phonnect.osutil import NO_WINDOW, gui_python, open_terminal
 
 log = logging.getLogger(__name__)
 
@@ -202,7 +202,7 @@ class Watcher:
 
     def open_desktop(self, hw_id: str) -> str:
         """Open the phone's desktop mode on a second, PC-sized virtual screen."""
-        from scrcpy_autolaunch.osutil import focus_process_window
+        from phonnect.osutil import focus_process_window
 
         with self._lock:
             existing = self.desktops.get(hw_id)
@@ -362,7 +362,7 @@ class Watcher:
 
     def handle_control(self, msg: dict) -> dict:
         """Requests from sidebar windows (see control.py)."""
-        from scrcpy_autolaunch.phone_state import MAX_SCALE, MIN_SCALE
+        from phonnect.phone_state import MAX_SCALE, MIN_SCALE
 
         cmd = msg.get("cmd")
         if cmd == "state":
@@ -440,7 +440,7 @@ class Watcher:
             return
         address, token = self.control
         cmd = [
-            gui_python(), "-m", "scrcpy_autolaunch", "_sidebar",
+            gui_python(), "-m", "phonnect", "_sidebar",
             "--serial", s.device.serial,
             "--hw", s.hw_id,
             "--pid", str(s.proc.pid),
@@ -448,8 +448,8 @@ class Watcher:
         ]  # fmt: skip
         # The token goes in the environment, not on the command line other users could read.
         child_env = dict(os.environ)
-        child_env["SCRCPY_AUTOLAUNCH_CONTROL"] = f"{address} {token}"
-        child_env["SCRCPY_AUTOLAUNCH_APP_PID"] = str(os.getpid())  # the sidebar exits with the app
+        child_env["PHONNECT_CONTROL"] = f"{address} {token}"
+        child_env["PHONNECT_APP_PID"] = str(os.getpid())  # the sidebar exits with the app
         child_env["ADB"] = self.adb.path
         try:
             s.sidebar = subprocess.Popen(
@@ -471,8 +471,8 @@ class Watcher:
     @staticmethod
     def _style_window(pid: int) -> None:
         """Match the scrcpy window's title bar to the OS light/dark mode (Windows)."""
-        from scrcpy_autolaunch import theme
-        from scrcpy_autolaunch.osutil import find_process_window
+        from phonnect import theme
+        from phonnect.osutil import find_process_window
 
         for _ in range(50):  # the window appears a moment after the process starts
             hwnd = find_process_window(pid)

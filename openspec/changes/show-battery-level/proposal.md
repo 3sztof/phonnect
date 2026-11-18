@@ -2,7 +2,7 @@
 
 ## Why
 
-Tracking issue: [#8](https://github.com/3sztof/scrcpy-autolaunch/issues/8).
+Tracking issue: [#8](https://github.com/3sztof/phonnect/issues/8).
 
 While mirroring over Wi-Fi the phone isn't charging, and the user usually isn't looking at it, so a dying battery comes as a surprise.
 

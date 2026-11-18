@@ -1,6 +1,6 @@
 """Tk windows: the Wi-Fi devices manager, and the pair / connect forms.
 
-They run in a separate process (`scrcpy-autolaunch _dialog <kind>`): on macOS
+They run in a separate process (`phonnect _dialog <kind>`): on macOS
 both Tk and the tray icon need the main thread, so they can't share a process.
 Every result is shown inside the window, so nothing depends on OS notifications.
 """
@@ -11,9 +11,9 @@ import queue
 import threading
 import time
 
-from scrcpy_autolaunch import theme
-from scrcpy_autolaunch.adb import Adb
-from scrcpy_autolaunch.wireless import (
+from phonnect import theme
+from phonnect.adb import Adb
+from phonnect.wireless import (
     KnownDevices,
     connect_verified,
     drop_offline,
@@ -52,7 +52,7 @@ def _set_window_icon(root) -> None:
     try:
         import tkinter as tk
 
-        from scrcpy_autolaunch.icons import ensure_icon_files
+        from phonnect.icons import ensure_icon_files
 
         _, png = ensure_icon_files()
         root._app_icon = tk.PhotoImage(file=str(png))  # keep a reference, or Tk drops it
@@ -212,7 +212,7 @@ class DevicesWindow:
         self.known = KnownDevices()
         self.root = tk.Tk()
         self.root._palette = theme.apply(self.root)
-        self.root.title("Wi-Fi devices - scrcpy-autolaunch")
+        self.root.title("Wi-Fi devices - Phonnect")
         _set_window_icon(self.root)
         self.root.minsize(560, 300)
         self.worker = _Worker(self.root)

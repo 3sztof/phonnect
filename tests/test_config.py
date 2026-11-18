@@ -1,6 +1,6 @@
 import json
 
-from scrcpy_autolaunch.config import Config
+from phonnect.config import Config
 
 
 def test_defaults_keep_audio_on_phone(tmp_path):

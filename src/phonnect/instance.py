@@ -6,8 +6,8 @@ import os
 from pathlib import Path
 from typing import IO
 
-from scrcpy_autolaunch import paths
-from scrcpy_autolaunch.osutil import IS_WINDOWS
+from phonnect import paths
+from phonnect.osutil import IS_WINDOWS
 
 
 class InstanceLock:

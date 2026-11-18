@@ -2,9 +2,9 @@
 
 ## Why
 
-Tracking issue: [#10](https://github.com/3sztof/scrcpy-autolaunch/issues/10).
+Tracking issue: [#10](https://github.com/3sztof/phonnect/issues/10).
 
-Installing currently needs uv and a long command copied from the release page. `winget install scrcpy-autolaunch` (and Scoop, Homebrew) would be the most familiar install for most people, and would handle updates.
+Installing currently needs uv and a long command copied from the release page. `winget install phonnect` (and Scoop, Homebrew) would be the most familiar install for most people, and would handle updates.
 
 ## What Changes
 

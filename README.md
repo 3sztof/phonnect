@@ -1,17 +1,18 @@
 <p align="center">
-  <img src="docs/images/icon.png" width="96" alt="scrcpy-autolaunch icon">
+  <img src="docs/images/icon.png" width="96" alt="Phonnect icon">
 </p>
 
-<h1 align="center">scrcpy-autolaunch</h1>
+<h1 align="center">Phonnect</h1>
 
 <p align="center">
-  A small tray app that opens your Android phone's screen on your computer as soon as the phone connects, over USB or Wi-Fi.<br>
-  Built on <a href="https://github.com/Genymobile/scrcpy">scrcpy</a>.
+  <b>Your Android phone on your desktop, the moment it connects.</b><br>
+  A small tray app that makes <a href="https://github.com/Genymobile/scrcpy">scrcpy</a> and adb effortless: it connects to your phone over USB or Wi-Fi and opens the mirror for you.<br>
+  <sub>Formerly <i>scrcpy-autolaunch</i>.</sub>
 </p>
 
 ## Support
 
-If scrcpy-autolaunch saves you a few clicks every day, you can support its development:
+If Phonnect saves you a few clicks every day, you can support its development:
 
 <p>
   <a href="https://github.com/sponsors/3sztof"><img src="https://img.shields.io/badge/GitHub%20Sponsors-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub"></a>
@@ -23,11 +24,15 @@ If scrcpy-autolaunch saves you a few clicks every day, you can support its devel
 
 ## The idea
 
-[scrcpy](https://github.com/Genymobile/scrcpy) is great at mirroring and controlling an Android phone, but you have to start it every time. **scrcpy-autolaunch** sits in your tray (menu bar on macOS), watches for your phone and starts scrcpy for you:
+Phonnect stands on the shoulders of two excellent tools:
+- **[adb](https://developer.android.com/tools/adb)**, Android's own debugging bridge, which talks to the phone over USB or Wi-Fi, and
+- **[scrcpy](https://github.com/Genymobile/scrcpy)**, which mirrors and controls the phone's screen with very low latency.
+
+Both are powerful, but they're command-line tools: you start them by hand every time, and wireless use means pairing codes, IP addresses and ports that change. **Phonnect does that part for you.** It sits in your tray (menu bar on macOS), notices when your phone connects, and opens the mirror automatically:
 
 - **Plug in the phone → the mirror window opens.** Close the window and it stays closed until you plug the phone in again.
-- **Same over Wi-Fi:** pair once, then open the phone from the tray with one click, or let it open by itself.
-- **Nothing else to manage:** no console window, it starts at login, and only one copy runs.
+- **Wi-Fi made easy:** pair once from a small window, and Phonnect remembers the phone. It finds it again after Android changes the debugging port (after a reboot or network change), so reconnecting is one click, or automatic.
+- **Nothing else to manage:** no console window, it starts at login, and only one copy runs. scrcpy and adb stay the standard tools from your OS's package manager; Phonnect just drives them.
 
 <p>
   <img src="docs/images/tray-waiting.png" width="24" alt=""> waiting for a phone &nbsp;
@@ -71,11 +76,11 @@ You need **scrcpy + adb** and **[uv](https://docs.astral.sh/uv/)**:
 | macOS | `brew install scrcpy && brew install --cask android-platform-tools` |
 | Linux | `sudo apt install scrcpy adb` (or your distro's equivalent) |
 
-Then install the [latest release](https://github.com/3sztof/scrcpy-autolaunch/releases/latest) with the command shown on its page, which looks like this:
+Then install the [latest release](https://github.com/3sztof/phonnect/releases/latest) with the command shown on its page, which looks like this:
 
 ```sh
-uv tool install --force --python ">=3.11" https://github.com/3sztof/scrcpy-autolaunch/releases/download/v0.2.0/scrcpy_autolaunch-0.2.0-py3-none-any.whl
-scrcpy-autolaunch install
+uv tool install --force --python ">=3.11" https://github.com/3sztof/phonnect/releases/download/vX.Y.Z/phonnect-X.Y.Z-py3-none-any.whl
+phonnect install
 ```
 
 `install` enables start at login, adds a Start menu entry (an app launcher entry on Linux) and starts the tray app. For installing from a clone with `just`, upgrading and uninstalling, see [docs/installation.md](docs/installation.md).
@@ -104,7 +109,7 @@ That's it: the mirror window opens. **New to this?** Follow the [step-by-step ph
 - [Troubleshooting](docs/troubleshooting.md): no window on plug-in, offline phones, black screens in secure apps, Linux and macOS notes
 - [Development](docs/development.md): how it works, tests, releasing
 
-The original PowerShell + VBS version (Windows only) is on the [`legacy-windows`](https://github.com/3sztof/scrcpy-autolaunch/tree/legacy-windows) branch.
+The original PowerShell + VBS version (Windows only) is on the [`legacy-windows`](https://github.com/3sztof/phonnect/tree/legacy-windows) branch.
 
 ## License
 

@@ -2,7 +2,7 @@
 
 ## Why
 
-Tracking issue: [#9](https://github.com/3sztof/scrcpy-autolaunch/issues/9).
+Tracking issue: [#9](https://github.com/3sztof/phonnect/issues/9).
 
 Settings are global today. Someone with a phone and a tablet wants different ones per device (landscape and a smaller content size on the tablet, audio on the PC for one but not the other).
 

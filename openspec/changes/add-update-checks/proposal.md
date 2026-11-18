@@ -2,13 +2,13 @@
 
 ## Why
 
-Tracking issue: [#5](https://github.com/3sztof/scrcpy-autolaunch/issues/5).
+Tracking issue: [#5](https://github.com/3sztof/phonnect/issues/5).
 
 scrcpy updates often and newer features (desktop mode, audio duplication) need recent versions. Neither scrcpy nor this app currently tells the user when an update is available.
 
 ## What Changes
 
-- At most once a day, check GitHub for the latest release of scrcpy and of scrcpy-autolaunch.
+- At most once a day, check GitHub for the latest release of scrcpy and of phonnect.
 - If one is newer than what's installed, show a quiet entry in the tray menu (no popups), e.g. "scrcpy 3.4 is available", which shows how to update: the OS-specific command for scrcpy (`winget upgrade Genymobile.scrcpy`, `brew upgrade scrcpy`, ...) and the `uv tool install --force …` command for the app.
 - A setting to turn update checks off. No data is sent other than the request to GitHub.
 

@@ -2,7 +2,7 @@
 
 ## Why
 
-Tracking issue: [#12](https://github.com/3sztof/scrcpy-autolaunch/issues/12).
+Tracking issue: [#12](https://github.com/3sztof/phonnect/issues/12).
 
 Using the phone from the keyboard should feel natural: Escape for Back, a key for Home, one for the app switcher, configurable to taste.
 

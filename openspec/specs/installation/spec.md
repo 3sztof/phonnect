@@ -21,7 +21,7 @@ The app SHALL install with uv from a GitHub release (or a clone with `just insta
 `install` SHALL register a per-user start-at-login entry and an app menu entry (Start menu on Windows, app launcher on Linux), with no admin rights.
 
 #### Scenario: After install
-- **WHEN** the user runs `scrcpy-autolaunch install`
+- **WHEN** the user runs `phonnect install`
 - **THEN** the app starts now, again at every login, and can be started from the Start menu
 
 ### Requirement: Single instance

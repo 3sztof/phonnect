@@ -20,8 +20,8 @@ import threading
 from pathlib import Path
 from typing import Callable
 
-from scrcpy_autolaunch import paths
-from scrcpy_autolaunch.adb import LANDSCAPE
+from phonnect import paths
+from phonnect.adb import LANDSCAPE
 
 log = logging.getLogger(__name__)
 

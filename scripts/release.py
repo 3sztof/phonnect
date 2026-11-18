@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-INIT = ROOT / "src" / "scrcpy_autolaunch" / "__init__.py"
+INIT = ROOT / "src" / "phonnect" / "__init__.py"
 
 
 def git(*args: str) -> str:
@@ -45,11 +45,11 @@ def main() -> int:
     if current != version:
         git("add", str(INIT))
         git("commit", "-m", f"Release {tag}")
-    git("tag", "-a", tag, "-m", f"scrcpy-autolaunch {version}")
+    git("tag", "-a", tag, "-m", f"phonnect {version}")
     git("push", "origin", "main")
     git("push", "origin", tag)
     print(f"Pushed {tag}. The Release workflow builds and publishes it:")
-    print("  https://github.com/3sztof/scrcpy-autolaunch/actions/workflows/release.yml")
+    print("  https://github.com/3sztof/phonnect/actions/workflows/release.yml")
     return 0
 
 

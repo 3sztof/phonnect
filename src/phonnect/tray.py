@@ -23,12 +23,12 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from scrcpy_autolaunch import autostart, icons, paths, theme
-from scrcpy_autolaunch.adb import USB, WIRELESS, Adb
-from scrcpy_autolaunch.config import Config
-from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, focus_process_window, gui_python, open_path
-from scrcpy_autolaunch.watcher import MOUSE_DEFAULTS, Watcher
-from scrcpy_autolaunch.wireless import KnownDevices, reconnect
+from phonnect import autostart, icons, paths, theme
+from phonnect.adb import USB, WIRELESS, Adb
+from phonnect.config import Config
+from phonnect.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, focus_process_window, gui_python, open_path
+from phonnect.watcher import MOUSE_DEFAULTS, Watcher
+from phonnect.wireless import KnownDevices, reconnect
 
 log = logging.getLogger(__name__)
 
@@ -134,14 +134,14 @@ class TrayApp:
             else None
         )
         if self.watcher is not None:
-            from scrcpy_autolaunch.cli import attach_helpers
+            from phonnect.cli import attach_helpers
 
             attach_helpers(self.watcher)
             self.watcher.on_quit = self.quit
         self.icon = icon_class(pystray)(
-            "scrcpy-autolaunch",
+            "phonnect",
             icon=icons.tray_icon("problem" if problem else "waiting"),
-            title="scrcpy-autolaunch",
+            title="Phonnect",
             menu=pystray.Menu(self._menu_items),
         )
 
@@ -164,7 +164,7 @@ class TrayApp:
         if self.watcher:
             self.watcher.stop()
             self.watcher.restore_all_phone_settings()
-        from scrcpy_autolaunch.control import remove_endpoint
+        from phonnect.control import remove_endpoint
 
         remove_endpoint()
         self.icon.stop()
@@ -193,7 +193,7 @@ class TrayApp:
     def notify(self, message: str) -> None:
         log.info("Notification: %s", message)
         try:
-            self.icon.notify(message, "scrcpy-autolaunch")
+            self.icon.notify(message, "Phonnect")
         except Exception:
             pass  # not every Linux tray backend supports notifications
 
@@ -207,7 +207,7 @@ class TrayApp:
                 if r.state != "available"
             ] or ["No phone connected"]
         # Windows limits tooltips to 127 characters.
-        return ("scrcpy-autolaunch\n" + "\n".join(lines))[:127]
+        return ("Phonnect\n" + "\n".join(lines))[:127]
 
     # ── menu ─────────────────────────────────────────────────────────────────
 
@@ -502,7 +502,7 @@ class TrayApp:
             self.notify(f"Could not open {path}: {exc}")
 
     def _dialog(self, kind: str, message: str = "") -> None:
-        cmd = [gui_python(), "-m", "scrcpy_autolaunch", "_dialog", kind]
+        cmd = [gui_python(), "-m", "phonnect", "_dialog", kind]
         if message:
             cmd += ["--message", message]
 
@@ -515,7 +515,7 @@ class TrayApp:
             if code == 3:
                 self.notify(
                     "Tk is not available for this Python. Use the command line instead: "
-                    "scrcpy-autolaunch pair IP:PORT CODE / connect IP:PORT / wifi"
+                    "phonnect pair IP:PORT CODE / connect IP:PORT / wifi"
                 )
             self.refresh()  # the window may have paired or connected a phone
 

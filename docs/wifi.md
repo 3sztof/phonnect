@@ -17,7 +17,7 @@ The app connects right after pairing. From then on, the phone appears at the top
 - **Wi-Fi → Manage Wi-Fi phones…** opens a window listing every paired phone with its status, plus Connect, Disconnect and Pair buttons. Errors are shown there in full.
 - If the app can't find the phone, use **Wi-Fi → Connect to address…** with the IP address & port shown on the phone's *Wireless debugging* screen. Don't use the port from the pairing popup.
 
-From a terminal: `scrcpy-autolaunch wifi`, `wifi --reconnect all`, `pair`, `connect IP:PORT`.
+From a terminal: `phonnect wifi`, `wifi --reconnect all`, `pair`, `connect IP:PORT`.
 
 ## Why connecting can fail, and how reconnecting works
 

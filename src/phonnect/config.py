@@ -7,7 +7,7 @@ import logging
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-from scrcpy_autolaunch import paths
+from phonnect import paths
 
 log = logging.getLogger(__name__)
 

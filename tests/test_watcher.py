@@ -1,6 +1,6 @@
-from scrcpy_autolaunch.adb import Device
-from scrcpy_autolaunch.config import Config
-from scrcpy_autolaunch.watcher import Watcher
+from phonnect.adb import Device
+from phonnect.config import Config
+from phonnect.watcher import Watcher
 
 USB_PHONE = Device("1A2B3C4D5E6F7G", "device", "Pixel_9_Pro")
 WIFI_SAME_PHONE = Device("adb-1A2B3C4D5E6F7G-x._adb-tls-connect._tcp", "device", "Pixel_9_Pro")

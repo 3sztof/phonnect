@@ -1,6 +1,6 @@
 """A button bar docked to the right of a scrcpy window.
 
-It runs as its own process (`scrcpy-autolaunch _sidebar …`), one per mirror window:
+It runs as its own process (`phonnect _sidebar …`), one per mirror window:
 on macOS, Tk and the tray icon both need the main thread, so they can't share a
 process. The watcher starts it with the window, and it exits when scrcpy does.
 
@@ -25,8 +25,8 @@ import subprocess
 import threading
 from pathlib import Path
 
-from scrcpy_autolaunch import control, theme
-from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, find_process_window, open_path, open_terminal
+from phonnect import control, theme
+from phonnect.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW, find_process_window, open_path, open_terminal
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ BUTTONS = [
     ("vol_down", "\ue993", "Vol−", "Volume down", "input keyevent 25"),
     ("power", "\ue7e8", "Pwr", "Power button (screen on/off)", "input keyevent 26"),
     None,
-    ("screenshot", "\ue722", "Shot", "Screenshot, saved to Pictures\\scrcpy-autolaunch (right-click: open the folder)", None),
+    ("screenshot", "\ue722", "Shot", "Screenshot, saved to Pictures\\Phonnect (right-click: open the folder)", None),
     ("landscape", "\ue7ad", "Land", "Force landscape", None),
     ("desktop", "\ue7f4", "Desk", "Open desktop mode: the phone's desktop in a second, PC-sized window", None),
     ("shell", "\ue756", ">_", "Open an adb shell to the phone", None),
@@ -119,7 +119,7 @@ def pictures_dir() -> Path:
 
 
 def screenshot_folder() -> Path:
-    return pictures_dir() / "scrcpy-autolaunch"
+    return pictures_dir() / "Phonnect"
 
 
 def take_screenshot(adb: str, serial: str, name: str) -> Path:
@@ -292,7 +292,7 @@ class Sidebar:
 
         self.adb, self.serial, self.hw, self.pid, self.name, self.ctl = adb, serial, hw, pid, name, ctl
         self.parent_pid = os.getppid()
-        app = os.environ.get("SCRCPY_AUTOLAUNCH_APP_PID", "")
+        app = os.environ.get("PHONNECT_APP_PID", "")
         self.app_pid = (int(app),) if app.isdigit() else ()
         self.shell = PhoneShell(adb, serial)
         self.root = root = tk.Tk()

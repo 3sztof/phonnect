@@ -2,7 +2,7 @@
 
 ## Why
 
-Tracking issue: [#7](https://github.com/3sztof/scrcpy-autolaunch/issues/7).
+Tracking issue: [#7](https://github.com/3sztof/phonnect/issues/7).
 
 Many sessions are about one app (for example the Spark guitar amp app). Opening the mirror and then finding the app on the phone is extra clicks every time.
 

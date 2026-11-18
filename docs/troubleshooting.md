@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with `scrcpy-autolaunch doctor`. It checks scrcpy, adb, tray support and connected phones, and explains what it finds. `scrcpy-autolaunch log` shows what the app saw.
+Start with `phonnect doctor`. It checks scrcpy, adb, tray support and connected phones, and explains what it finds. `phonnect log` shows what the app saw.
 
 ## Plugging in the phone doesn't open a window
 
@@ -40,7 +40,7 @@ If tools with different adb versions keep disconnecting the phone, point them at
 
 - **No tray icon:** GNOME needs the *AppIndicator and KStatusNotifierItem Support* extension. KDE, XFCE and Cinnamon work out of the box.
 - **`no permissions` in `adb devices`:** install your distro's Android udev rules (`android-udev`, `android-sdk-platform-tools-common`, or similar), then replug.
-- **The pairing window doesn't open:** install `python3-tk`, or use `scrcpy-autolaunch pair IP:PORT CODE`.
+- **The pairing window doesn't open:** install `python3-tk`, or use `phonnect pair IP:PORT CODE`.
 
 ## macOS
 

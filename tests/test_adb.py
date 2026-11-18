@@ -1,5 +1,5 @@
-from scrcpy_autolaunch.adb import EMULATOR, USB, WIRELESS, Device, parse_devices, parse_mdns
-from scrcpy_autolaunch.tools import parse_scrcpy_version
+from phonnect.adb import EMULATOR, USB, WIRELESS, Device, parse_devices, parse_mdns
+from phonnect.tools import parse_scrcpy_version
 
 WINDOWS_OUTPUT = """\
 List of devices attached

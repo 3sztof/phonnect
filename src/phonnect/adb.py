@@ -6,7 +6,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 
-from scrcpy_autolaunch.osutil import NO_WINDOW
+from phonnect.osutil import NO_WINDOW
 
 USB = "usb"
 WIRELESS = "wireless"

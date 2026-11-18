@@ -15,62 +15,62 @@
 
 ## From a release (recommended)
 
-Every [release](https://github.com/3sztof/scrcpy-autolaunch/releases) shows its install command:
+Every [release](https://github.com/3sztof/phonnect/releases) shows its install command:
 
 ```sh
-uv tool install --force --python ">=3.11" https://github.com/3sztof/scrcpy-autolaunch/releases/download/vX.Y.Z/scrcpy_autolaunch-X.Y.Z-py3-none-any.whl
-scrcpy-autolaunch install
+uv tool install --force --python ">=3.11" https://github.com/3sztof/phonnect/releases/download/vX.Y.Z/phonnect-X.Y.Z-py3-none-any.whl
+phonnect install
 ```
 
-`scrcpy-autolaunch install`:
+`phonnect install`:
 - enables start at login
 - adds an app menu entry (Start menu on Windows, app launcher on Linux)
 - starts the tray app
 
-Run `scrcpy-autolaunch doctor` to check that scrcpy, adb and the tray work, and that your phone is detected.
+Run `phonnect doctor` to check that scrcpy, adb and the tray work, and that your phone is detected.
 
 ## From a clone
 
 ```sh
-git clone https://github.com/3sztof/scrcpy-autolaunch
-cd scrcpy-autolaunch
+git clone https://github.com/3sztof/phonnect
+cd phonnect
 just install
 ```
 
 `just install`:
 1. Checks for uv. If it's missing, it shows the official install command and asks before running it.
 2. Installs the app from the checkout with `uv tool install`.
-3. Runs `scrcpy-autolaunch doctor`.
-4. Runs `scrcpy-autolaunch install`.
+3. Runs `phonnect doctor`.
+4. Runs `phonnect install`.
 
 To install straight from `main` without cloning:
 
 ```sh
-uv tool install --python ">=3.11" git+https://github.com/3sztof/scrcpy-autolaunch
-scrcpy-autolaunch install
+uv tool install --python ">=3.11" git+https://github.com/3sztof/phonnect
+phonnect install
 ```
 
 ## Upgrading
 
 ```sh
-scrcpy-autolaunch stop
+phonnect stop
 uv tool install --force --python ">=3.11" <wheel URL of the new release>
-scrcpy-autolaunch start
+phonnect start
 ```
 
 From a clone: `git pull`, then `just install`. Settings and remembered phones are kept either way.
 
 ## Starting and stopping
 
-It starts by itself at login. To start it by hand, use the **scrcpy-autolaunch** entry in the Start menu or app launcher, or run `scrcpy-autolaunch start`. Only one copy runs, so starting it again does nothing.
+It starts by itself at login. To start it by hand, use the **phonnect** entry in the Start menu or app launcher, or run `phonnect start`. Only one copy runs, so starting it again does nothing.
 
-Quit from the tray menu, or run `scrcpy-autolaunch stop`. Open mirror windows stay open.
+Quit from the tray menu, or run `phonnect stop`. Open mirror windows stay open.
 
 ## Uninstalling
 
 ```sh
-scrcpy-autolaunch uninstall --purge
-uv tool uninstall scrcpy-autolaunch
+phonnect uninstall --purge
+uv tool uninstall phonnect
 ```
 
 `uninstall --purge` stops the app, removes the start-at-login and app menu entries, and deletes settings, logs and remembered phones. From a clone, `just uninstall` does all of it. scrcpy and adb are not touched.
@@ -85,4 +85,4 @@ If you installed the PowerShell version from the `legacy-windows` branch, remove
 2. Delete `shell:startup\scrcpy-auto-launch.vbs`.
 3. Delete `%USERPROFILE%\scrcpy-auto\`.
 
-`scrcpy-autolaunch doctor` warns you if the old Startup entry is still there.
+`phonnect doctor` warns you if the old Startup entry is still there.

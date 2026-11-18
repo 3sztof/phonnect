@@ -3,11 +3,11 @@ import os
 
 import pytest
 
-from scrcpy_autolaunch import control
-from scrcpy_autolaunch.adb import parse_wm_density
-from scrcpy_autolaunch.osutil import linux_terminal_command
-from scrcpy_autolaunch.phone_state import DensityKeeper
-from scrcpy_autolaunch.sidebar import dock_position, process_alive
+from phonnect import control
+from phonnect.adb import parse_wm_density
+from phonnect.osutil import linux_terminal_command
+from phonnect.phone_state import DensityKeeper
+from phonnect.sidebar import dock_position, process_alive
 from test_watcher import USB_PHONE, Harness
 
 HW = USB_PHONE.serial
@@ -71,7 +71,7 @@ def test_scale_is_clamped(tmp_path):
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
-    monkeypatch.setenv("SCRCPY_AUTOLAUNCH_HOME", str(tmp_path))
+    monkeypatch.setenv("PHONNECT_HOME", str(tmp_path))
     return tmp_path
 
 

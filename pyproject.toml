@@ -1,5 +1,5 @@
 [project]
-name = "scrcpy-autolaunch"
+name = "phonnect"
 dynamic = ["version"]
 description = "Open scrcpy automatically when an Android device connects over USB or Wi-Fi, with a tray icon."
 readme = "README.md"
@@ -23,14 +23,14 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/3sztof/scrcpy-autolaunch"
+Homepage = "https://github.com/3sztof/phonnect"
 
 [project.scripts]
-scrcpy-autolaunch = "scrcpy_autolaunch.cli:main"
+phonnect = "phonnect.cli:main"
 
 # GUI entry point: on Windows this launcher has no console window.
 [project.gui-scripts]
-scrcpy-autolaunch-tray = "scrcpy_autolaunch.cli:tray_main"
+phonnect-tray = "phonnect.cli:tray_main"
 
 [dependency-groups]
 dev = ["pytest>=8"]
@@ -40,10 +40,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "src/scrcpy_autolaunch/__init__.py"
+path = "src/phonnect/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/scrcpy_autolaunch"]
+packages = ["src/phonnect"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

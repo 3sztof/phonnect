@@ -21,8 +21,8 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Callable
 
-from scrcpy_autolaunch import paths
-from scrcpy_autolaunch.adb import WIRELESS, Adb
+from phonnect import paths
+from phonnect.adb import WIRELESS, Adb
 
 log = logging.getLogger(__name__)
 

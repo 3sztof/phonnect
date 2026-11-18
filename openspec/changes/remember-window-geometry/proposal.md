@@ -2,7 +2,7 @@
 
 ## Why
 
-Tracking issue: [#6](https://github.com/3sztof/scrcpy-autolaunch/issues/6).
+Tracking issue: [#6](https://github.com/3sztof/phonnect/issues/6).
 
 Every time the mirror opens, it appears in scrcpy's default position and size, so the user drags it back to their preferred spot each time.
 

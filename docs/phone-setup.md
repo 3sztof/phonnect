@@ -35,7 +35,7 @@ This guide assumes you've never touched these settings before. It takes about fi
 
 ## Step 3: Connect the phone to your computer
 
-1. Make sure scrcpy-autolaunch is running: its icon <img src="images/tray-waiting.png" width="18" alt=""> is in the tray, near the clock.
+1. Make sure Phonnect is running: its icon <img src="images/tray-waiting.png" width="18" alt=""> is in the tray, near the clock.
 2. **Unlock your phone**, then plug it in with a USB cable.
    - Use a cable that can carry data. Some cheap cables only charge; if nothing happens, try another cable.
 3. The phone asks **"Allow USB debugging?"** and shows a long code (the computer's "fingerprint").
@@ -55,7 +55,7 @@ That's it. From now on, plugging in the phone opens the window by itself.
 | The computer makes the "device connected" sound, but nothing opens | USB debugging is probably off: see step 2 |
 | The window opens, but you can't tap or type (Xiaomi) | Turn on **USB debugging (Security settings)** (step 2) |
 
-`scrcpy-autolaunch doctor` (in a terminal) checks everything and tells you what's missing. There's more in [troubleshooting.md](troubleshooting.md).
+`phonnect doctor` (in a terminal) checks everything and tells you what's missing. There's more in [troubleshooting.md](troubleshooting.md).
 
 ---
 

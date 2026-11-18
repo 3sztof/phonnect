@@ -31,8 +31,8 @@ jobs:
         run: uv run pytest -q
       - name: CLI smoke test
         run: |
-          uv run scrcpy-autolaunch --help
-          uv run scrcpy-autolaunch status || true
+          uv run phonnect --help
+          uv run phonnect status || true
       - name: Tool install from source
         run: |
           uv tool install .

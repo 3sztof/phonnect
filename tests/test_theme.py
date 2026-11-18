@@ -1,6 +1,6 @@
 import pytest
 
-from scrcpy_autolaunch import theme
+from phonnect import theme
 
 
 def test_palettes_differ():

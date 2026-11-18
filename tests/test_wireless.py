@@ -1,7 +1,7 @@
 import socket
 
-from scrcpy_autolaunch.adb import Device
-from scrcpy_autolaunch.wireless import (
+from phonnect.adb import Device
+from phonnect.wireless import (
     KnownDevices,
     paired_guid,
     paired_serials,

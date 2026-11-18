@@ -12,7 +12,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from scrcpy_autolaunch.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW
+from phonnect.osutil import IS_MAC, IS_WINDOWS, NO_WINDOW
 
 
 def _exe(name: str) -> str:

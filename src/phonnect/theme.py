@@ -12,7 +12,7 @@ import ctypes
 import logging
 from dataclasses import dataclass
 
-from scrcpy_autolaunch.osutil import IS_LINUX, IS_WINDOWS
+from phonnect.osutil import IS_LINUX, IS_WINDOWS
 
 log = logging.getLogger(__name__)
 

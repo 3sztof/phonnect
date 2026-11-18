@@ -15,8 +15,8 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-from scrcpy_autolaunch import paths
-from scrcpy_autolaunch.osutil import IS_WINDOWS
+from phonnect import paths
+from phonnect.osutil import IS_WINDOWS
 
 GREEN = (61, 220, 132, 255)  # a phone is connected
 RED = (235, 87, 87, 255)  # adb/scrcpy not found
@@ -87,7 +87,7 @@ def app_icon(size: int = 256):
 def tray_icon(state: str):
     """state: 'connected' (green phone), 'waiting' (outline only) or 'problem' (red phone)."""
     if IS_WINDOWS:
-        from scrcpy_autolaunch.theme import system_is_light
+        from phonnect.theme import system_is_light
 
         stroke = DARK if system_is_light() else WHITE
     else:

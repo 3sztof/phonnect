@@ -1,6 +1,6 @@
-from scrcpy_autolaunch.adb import Device
-from scrcpy_autolaunch.tray import build_rows
-from scrcpy_autolaunch.wireless import KnownDevice
+from phonnect.adb import Device
+from phonnect.tray import build_rows
+from phonnect.wireless import KnownDevice
 
 HW = "1A2B3C4D5E6F7G"
 USB = Device(HW, "device", "Pixel_9_Pro")

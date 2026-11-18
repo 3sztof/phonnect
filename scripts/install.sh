@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs scrcpy-autolaunch with uv (installing uv first if needed, after asking).
+# Installs phonnect with uv (installing uv first if needed, after asking).
 # Usage: sh scripts/install.sh [path or git URL]
 set -eu
 
@@ -7,7 +7,7 @@ SOURCE="${1:-}"
 if [ -z "$SOURCE" ]; then
     REPO="$(cd "$(dirname "$0")/.." && pwd)"
     if [ -f "$REPO/pyproject.toml" ]; then SOURCE="$REPO"
-    else SOURCE="git+https://github.com/3sztof/scrcpy-autolaunch"; fi
+    else SOURCE="git+https://github.com/3sztof/phonnect"; fi
 fi
 
 UV="$(command -v uv || true)"
@@ -25,11 +25,18 @@ if [ -z "$UV" ]; then
 fi
 
 BIN="$("$UV" tool dir --bin)"
-APP="$BIN/scrcpy-autolaunch"
+APP="$BIN/phonnect"
 
 [ -x "$APP" ] && "$APP" stop || true
 
-echo "Installing scrcpy-autolaunch from $SOURCE ..."
+# The app used to be called scrcpy-autolaunch: stop and remove the old tool (settings are kept and moved).
+if [ -x "$BIN/scrcpy-autolaunch" ]; then
+    echo "Replacing the old scrcpy-autolaunch with Phonnect ..."
+    "$BIN/scrcpy-autolaunch" stop || true
+    "$UV" tool uninstall scrcpy-autolaunch || true
+fi
+
+echo "Installing phonnect from $SOURCE ..."
 "$UV" tool install --force --reinstall --python ">=3.11" "$SOURCE"
 
 echo
@@ -39,5 +46,5 @@ echo
 
 case ":$PATH:" in
     *":$BIN:"*) ;;
-    *) echo; echo "Note: $BIN is not on your PATH. Run 'uv tool update-shell' to use 'scrcpy-autolaunch' directly." ;;
+    *) echo; echo "Note: $BIN is not on your PATH. Run 'uv tool update-shell' to use 'phonnect' directly." ;;
 esac

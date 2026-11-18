@@ -39,6 +39,32 @@ wheels = [
 ]
 
 [[package]]
+name = "phonnect"
+source = { editable = "." }
+dependencies = [
+    { name = "darkdetect" },
+    { name = "pillow" },
+    { name = "pystray" },
+    { name = "sv-ttk", marker = "sys_platform == 'win32'" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "darkdetect", specifier = ">=0.8" },
+    { name = "pillow", specifier = ">=13.0" },
+    { name = "pystray", specifier = ">=0.19.5" },
+    { name = "sv-ttk", marker = "sys_platform == 'win32'", specifier = ">=2.6" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8" }]
+
+[[package]]
 name = "pillow"
 version = "13.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -242,32 +268,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/86/f5/8c0653e5bb54e0cbd
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fc/b8/ff33610932e0ee81ae7f1269c890f697d56ff74b9f5b2ee5d9b7fa2c5355/python_xlib-0.33-py2.py3-none-any.whl", hash = "sha256:c3534038d42e0df2f1392a1b30a15a4ff5fdc2b86cfa94f072bf11b10a164398", size = 182185, upload-time = "2022-12-25T18:52:58.662Z" },
 ]
-
-[[package]]
-name = "scrcpy-autolaunch"
-source = { editable = "." }
-dependencies = [
-    { name = "darkdetect" },
-    { name = "pillow" },
-    { name = "pystray" },
-    { name = "sv-ttk", marker = "sys_platform == 'win32'" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "darkdetect", specifier = ">=0.8" },
-    { name = "pillow", specifier = ">=13.0" },
-    { name = "pystray", specifier = ">=0.19.5" },
-    { name = "sv-ttk", marker = "sys_platform == 'win32'", specifier = ">=2.6" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8" }]
 
 [[package]]
 name = "six"

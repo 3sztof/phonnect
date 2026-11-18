@@ -1,4 +1,4 @@
-# scrcpy-autolaunch: run `just` to list the recipes.
+# phonnect: run `just` to list the recipes.
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
@@ -18,7 +18,7 @@ install:
 # Stop the app, remove start at login, settings, logs and the uv tool
 uninstall:
     -just _app uninstall --purge
-    uv tool uninstall scrcpy-autolaunch
+    uv tool uninstall phonnect
 
 # Start the tray app in the background
 start:
@@ -50,16 +50,16 @@ release version:
 
 # Run the tray from this checkout (foreground)
 dev-tray:
-    uv run scrcpy-autolaunch tray
+    uv run phonnect tray
 
 # Run the console watcher from this checkout (foreground, Ctrl+C to stop)
 dev-run:
-    uv run scrcpy-autolaunch run
+    uv run phonnect run
 
 [windows]
 _app *args:
-    @& (Join-Path (uv tool dir --bin).Trim() 'scrcpy-autolaunch.exe') {{args}}
+    @& (Join-Path (uv tool dir --bin).Trim() 'phonnect.exe') {{args}}
 
 [unix]
 _app *args:
-    @"$(uv tool dir --bin)/scrcpy-autolaunch" {{args}}
+    @"$(uv tool dir --bin)/phonnect" {{args}}

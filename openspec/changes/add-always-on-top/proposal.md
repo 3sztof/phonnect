@@ -2,7 +2,7 @@
 
 ## Why
 
-Tracking issue: [#3](https://github.com/3sztof/scrcpy-autolaunch/issues/3).
+Tracking issue: [#3](https://github.com/3sztof/phonnect/issues/3).
 
 People keep the mirror next to other work (e.g. the Spark app while playing along with a video). Without "always on top" the mirror disappears behind other windows as soon as they're clicked.
 
