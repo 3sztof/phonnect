@@ -388,7 +388,8 @@ class Sidebar:
             hide_dock_icon()  # a helper window of the menu bar app: no Dock icon of its own
         self.palette = theme.apply(root)
         root.title(f"{name} controls")
-        self.width = round(WIDTH * root.winfo_fpixels("1i") / 96)
+        # Windows counts 96 units per inch at 100 % scaling; macOS's Tk already works in points.
+        self.width = WIDTH if IS_MAC else round(WIDTH * root.winfo_fpixels("1i") / 96)
 
         families = set(tkfont.families(root))
         icon_font = next((f for f in ICON_FONTS if f in families), None)
@@ -446,6 +447,10 @@ class Sidebar:
 
         self.status = ttk.Label(frame, text="", anchor="center", font=("TkDefaultFont", 8), wraplength=self.width - 8)
         self.status.pack(fill="x", side="bottom")
+        # Never narrower than the buttons need (text labels and Aqua's padding are wider than icons).
+        root.update_idletasks()
+        self.width = max(self.width, frame.winfo_reqwidth())
+        self.status.configure(wraplength=self.width - 8)
 
         self._load_state()
         self.dock = None
