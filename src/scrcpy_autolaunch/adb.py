@@ -152,8 +152,14 @@ class Adb:
         return int(out) if out.isdigit() else 0
 
     def wifi_debugging_enabled(self, serial: str) -> bool | None:
+        return self._global_flag(serial, "adb_wifi_enabled")
+
+    def usb_debugging_enabled(self, serial: str) -> bool | None:
+        return self._global_flag(serial, "adb_enabled")
+
+    def _global_flag(self, serial: str, name: str) -> bool | None:
         try:
-            out = self.run("-s", serial, "shell", "settings", "get", "global", "adb_wifi_enabled", timeout=10).stdout.strip()
+            out = self.run("-s", serial, "shell", "settings", "get", "global", name, timeout=10).stdout.strip()
         except (OSError, subprocess.TimeoutExpired):
             return None
         return {"1": True, "0": False}.get(out)

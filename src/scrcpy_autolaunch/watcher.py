@@ -71,6 +71,7 @@ class Watcher:
         self.devices: dict[str, Device] = {}
         self.hw_ids: dict[str, str] = {}
         self.sessions: dict[str, Session] = {}
+        self._warned_usb_off: set[str] = set()
 
     # ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -321,6 +322,15 @@ class Watcher:
             else:
                 wifi = {True: "on", False: "off", None: "unknown"}[enabled]
             log.info("Remembered %s: Wi-Fi IP %s, Wireless debugging %s", dev.label, ip or "unknown", wifi)
+            if dev.transport == WIRELESS and self.config.auto_usb and self.adb.usb_debugging_enabled(dev.serial) is False:
+                msg = (
+                    f"USB debugging is off on {dev.label.rsplit(' (', 1)[0]}, so plugging it in won't open "
+                    "a window. Turn it on in Settings > System > Developer options > USB debugging."
+                )
+                log.warning(msg)
+                if hw not in self._warned_usb_off:
+                    self._warned_usb_off.add(hw)
+                    self._notify(msg)
             self._on_change()
         except Exception:
             log.exception("Could not read Wi-Fi details of %s", dev.serial)

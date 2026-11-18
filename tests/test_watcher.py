@@ -227,3 +227,23 @@ def test_explicit_mirror_works_over_wifi_with_auto_wireless_off():
     h.tick(WIFI_OTHER_PHONE)
     assert h.procs == []
     assert h.watcher.mirror(WIFI_OTHER_PHONE.serial) == "started"
+
+
+class FakeKnown:
+    def __init__(self):
+        self.calls = []
+
+    def remember(self, hw, **kw):
+        self.calls.append((hw, kw))
+
+
+def test_warns_once_when_usb_debugging_is_off():
+    h = Harness()
+    h.adb.wifi_ip = lambda s: "192.168.1.132"
+    h.adb.tls_port = lambda s: 0
+    h.adb.wifi_debugging_enabled = lambda s: True
+    h.adb.usb_debugging_enabled = lambda s: False
+    h.watcher.known = FakeKnown()
+    h.watcher._learn(WIFI_SAME_PHONE, USB_PHONE.serial)
+    h.watcher._learn(WIFI_SAME_PHONE, USB_PHONE.serial)
+    assert len(h.notes) == 1 and "USB debugging is off" in h.notes[0]

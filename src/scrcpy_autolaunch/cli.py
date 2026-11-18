@@ -188,6 +188,9 @@ def cmd_doctor(args) -> int:
         elif d.state == "no permissions":
             ok = False
             print("  -> adb can't access the USB device; see the Linux section of the README")
+        elif d.online and d.transport == WIRELESS and Adb(adb).usb_debugging_enabled(d.serial) is False:
+            print("  -> USB debugging is OFF on this phone: plugging it in won't be detected.")
+            print("     Turn it on: Settings > System > Developer options > USB debugging")
 
     if (legacy := legacy_startup_entry()) is not None:
         print(f"warning: the old PowerShell watcher is still set to start at login: {legacy}")
