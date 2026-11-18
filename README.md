@@ -93,6 +93,16 @@ That's it: the mirror window opens. For Wi-Fi, see [docs/wifi.md](docs/wifi.md).
 
 The original PowerShell + VBS version (Windows only) is on the [`legacy-windows`](https://github.com/3sztof/scrcpy-autolaunch/tree/legacy-windows) branch.
 
+## Support
+
+If scrcpy-autolaunch saves you a few clicks every day, you can support its development:
+
+<p>
+  <a href="https://github.com/sponsors/3sztof"><img src="https://img.shields.io/badge/GitHub%20Sponsors-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub"></a>
+  &nbsp;
+  <a href="https://buymeacoffee.com/3sztof"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-ffdd00?logo=buymeacoffee&logoColor=black" alt="Buy me a coffee"></a>
+</p>
+
 ## License
 
 [MIT](LICENSE). The icon is based on [Lucide](https://lucide.dev)'s `monitor-smartphone` icon (ISC); see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).
