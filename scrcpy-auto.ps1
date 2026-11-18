@@ -1,7 +1,7 @@
 # scrcpy-auto.ps1
 # Watches for a USB-connected Android device and launches scrcpy automatically.
 # Logs events to scrcpy-auto.log in the same folder.
-# Bluetooth-safe: uses --stay-awake --select-usb only; never touches audio.
+# --no-audio keeps phone audio on the phone (scrcpy 2.0+ forwards it by default).
 
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $LOG        = Join-Path $SCRIPT_DIR "scrcpy-auto.log"
@@ -91,10 +91,11 @@ try {
         # Launch scrcpy with no console window; the mirror window still appears.
         # --select-usb pins to the physical USB device, ignoring offline
         # emulators or tcpip devices that may also appear in `adb devices`.
+        # --no-audio stops scrcpy from capturing (and muting) device audio.
         Write-Log "Starting scrcpy"
         $psi                  = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName         = $SCRCPY
-        $psi.Arguments        = "--stay-awake --select-usb"
+        $psi.Arguments        = "--no-audio --stay-awake --select-usb"
         $psi.UseShellExecute  = $false
         $psi.CreateNoWindow   = $true
         $proc = [System.Diagnostics.Process]::Start($psi)
