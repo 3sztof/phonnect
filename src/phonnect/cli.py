@@ -486,6 +486,10 @@ def cmd_log(args) -> int:
 
 
 def cmd_dialog(args) -> int:
+    if args.kind == "desktop":  # needs no adb
+        from phonnect.dialogs import run_dialog
+
+        return run_dialog("desktop", None, args.message)
     return _dialog(require_adb(Config.load()), args.kind, args.message)
 
 
@@ -514,6 +518,13 @@ def cmd_sidebar(args) -> int:
 
     adb = os.environ.get("ADB") or require_adb(Config.load()).path
     return run_sidebar(adb, args.serial, args.hw, args.pid, args.name)
+
+
+def cmd_desktop_apps(args) -> int:
+    from phonnect.desktop_apps import run_desktop_apps
+
+    adb = os.environ.get("ADB") or require_adb(Config.load()).path
+    return run_desktop_apps(adb, args.serial, args.display, args.pid, args.name, os.environ.get("SCRCPY"))
 
 
 def _dialog(adb: Adb, kind: str, message: str = "") -> int:
@@ -580,11 +591,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--check", action="store_true", help="only check, don't install"
     )
     sp = add("_dialog", cmd_dialog, argparse.SUPPRESS)
-    sp.add_argument("kind", choices=["pair", "connect", "devices"])
+    sp.add_argument("kind", choices=["pair", "connect", "devices", "desktop"])
     sp.add_argument("--message", default="")
     sp = add("_sidebar", cmd_sidebar, argparse.SUPPRESS)
     sp.add_argument("--serial", required=True)
     sp.add_argument("--hw", required=True)
+    sp.add_argument("--pid", type=int, required=True)
+    sp.add_argument("--name", default="Phone")
+    sp = add("_desktop_apps", cmd_desktop_apps, argparse.SUPPRESS)
+    sp.add_argument("--serial", required=True)
+    sp.add_argument("--display", type=int, required=True)
     sp.add_argument("--pid", type=int, required=True)
     sp.add_argument("--name", default="Phone")
     # Hide the internal commands from --help.

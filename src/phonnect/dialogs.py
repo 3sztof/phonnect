@@ -60,7 +60,79 @@ def run_dialog(kind: str, adb: Adb, message: str = "") -> int:
     if kind == "devices":
         DevicesWindow(adb, message).run()
         return 0
+    if kind == "desktop":
+        return desktop_warning(overlay=message == "overlay")
     return _standalone_form(kind, adb)
+
+
+DESKTOP_OK, DESKTOP_CANCEL, DESKTOP_OK_DONT_ASK = 0, 1, 10
+
+DESKTOP_TEXT = (
+    "Desktop mode opens your phone's desktop in a second window, like plugging the phone into a "
+    "monitor. It's an experimental workaround:\n\n"
+    "•  On current Pixels (Android 16 and 17), apps can't be opened from the desktop's own taskbar "
+    "yet. That's a problem between Android and scrcpy, and a fix is on its way in scrcpy.\n"
+    "•  Until then, Phonnect puts an Apps panel next to the desktop window: open apps from there.\n"
+    "•  Apps opened this way have no title bars, so they can't be moved or resized. Switch between "
+    "them and close them in the Apps panel.\n\n"
+    "Nothing on your phone is changed. Close the desktop window to end it."
+)
+DESKTOP_OVERLAY_TEXT = (
+    "Desktop mode opens your phone's desktop in a second window. You've chosen the simulated second "
+    "screen (desktop_method: overlay). Here be dragons:\n\n"
+    "•  It turns on Developer options > Simulate secondary displays while the window is open, and "
+    "your phone shows a semi-transparent preview of the desktop.\n"
+    "•  On a Pixel 9 Pro it froze after about 20 seconds and Android restarted itself.\n"
+    "•  Phonnect turns it off again when you close the window. If the preview stays on the phone: "
+    "Developer options > Simulate secondary displays > None, or restart the phone."
+)
+
+
+def desktop_warning(overlay: bool = False) -> int:
+    """Ask before desktop mode opens. Exit codes: DESKTOP_OK, DESKTOP_CANCEL, DESKTOP_OK_DONT_ASK."""
+    import tkinter as tk
+    from tkinter import ttk
+
+    root = tk.Tk()
+    pal = theme.apply(root)
+    root.title("Desktop mode (experimental) - Phonnect")
+    _set_window_icon(root)
+    root.resizable(False, False)
+    result = {"code": DESKTOP_CANCEL}
+    frame = ttk.Frame(root, padding=18)
+    frame.pack(fill="both", expand=True)
+    ttk.Label(frame, text="Desktop mode is experimental", font=("TkDefaultFont", 12, "bold")).pack(anchor="w")
+    ttk.Label(frame, text=DESKTOP_OVERLAY_TEXT if overlay else DESKTOP_TEXT, wraplength=520, justify="left").pack(
+        anchor="w", pady=(8, 12)
+    )
+    dont_ask = tk.BooleanVar(value=False)
+    if not overlay:  # the risky variant asks every time
+        ttk.Checkbutton(frame, text="Don't show this again", variable=dont_ask).pack(anchor="w")
+    ttk.Label(frame, text="Details and progress: github.com/3sztof/phonnect/issues/1", foreground=pal.muted).pack(
+        anchor="w", pady=(8, 0)
+    )
+    buttons = ttk.Frame(frame)
+    buttons.pack(fill="x", pady=(14, 0))
+
+    def choose(code):
+        result["code"] = code
+        root.destroy()
+
+    ttk.Button(buttons, text="Cancel", command=lambda: choose(DESKTOP_CANCEL)).pack(side="right")
+    go = ttk.Button(
+        buttons,
+        text="Open desktop mode",
+        command=lambda: choose(DESKTOP_OK_DONT_ASK if dont_ask.get() else DESKTOP_OK),
+    )
+    go.pack(side="right", padx=(0, 8))
+    go.focus_set()
+    root.bind("<Return>", lambda _e: go.invoke())
+    root.bind("<Escape>", lambda _e: choose(DESKTOP_CANCEL))
+    root.lift()
+    root.attributes("-topmost", True)
+    root.after(500, lambda: root.attributes("-topmost", False))
+    root.mainloop()
+    return result["code"]
 
 
 def _set_window_icon(root) -> None:

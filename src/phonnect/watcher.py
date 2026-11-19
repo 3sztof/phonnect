@@ -61,6 +61,7 @@ class TrackedWindow:
 
 
 TEXTURE_RE = re.compile(r"Texture: (\d+)x(\d+)")
+NEW_DISPLAY_RE = re.compile(r"New display: \S+ \(id=(\d+)\)")
 DISPLAY_RE = re.compile(r"--display-id=(\d+)\s+\((\d+x\d+)\)")
 
 
@@ -95,6 +96,8 @@ class Watcher:
         self.style_windows = False  # match scrcpy's title bar to the OS theme (set by the tray)
         self.on_quit: Callable[[], None] | None = None  # how a "quit" control request ends the app
         self.on_show: Callable[[], None] | None = None  # the app was opened again: show where it is
+        # Asks the user before desktop mode opens (set by the tray); returns whether to go ahead.
+        self.confirm_desktop: Callable[[], bool] | None = None
         self._on_change = on_change or (lambda: None)
         self._notify = notify or (lambda msg: None)
         self._popen = popen
@@ -233,11 +236,15 @@ class Watcher:
         return "not connected"
 
     def open_desktop_and_report(self, hw_id: str) -> str:
-        """open_desktop() for callers that don't wait: problems become a notification."""
+        """open_desktop() for callers that don't wait: asks first, problems become a notification."""
         existing = self.desktops.get(hw_id)
         already_open = (existing is not None and existing.poll() is None) or hw_id in self._desktop_opening
         if already_open:
-            pass  # just brought to the front: no warning again
+            pass  # just brought to the front: no questions
+        elif self.confirm_desktop is not None:
+            if not self.confirm_desktop():
+                log.info("Desktop mode cancelled")
+                return "cancelled"
         elif self.config.desktop_method == "overlay":
             self._notify(
                 "Desktop mode is experimental, here be dragons. It uses a simulated second screen, so your "
@@ -254,7 +261,7 @@ class Watcher:
         except Exception as exc:
             log.exception("Desktop mode failed")
             result = f"failed: {exc}"
-        if result not in ("started", "already open", "already opening"):
+        if result not in ("started", "already open", "already opening", "cancelled"):
             self._notify(f"Desktop mode: {result}")
         return result
 
@@ -312,10 +319,13 @@ class Watcher:
             with self._lock:
                 self._desktop_opening.discard(hw_id)
         tracked = self._track(self.windows.key(hw_id, desktop=True), proc) if self.windows else None
+        on_line = self._scrcpy_output(tracked)
+        if display_id is None:  # scrcpy's virtual screen: its taskbar can't open apps, add the Apps panel
+            on_line = self._desktop_output(on_line, dev, proc)
         if proc.stdout is not None:
             threading.Thread(
                 target=self._pump_output,
-                args=(proc, f"{serial} desktop", self._scrcpy_output(tracked)),
+                args=(proc, f"{serial} desktop", on_line),
                 name="desktop-output",
                 daemon=True,
             ).start()
@@ -707,6 +717,42 @@ class Watcher:
                 t.trimmed = True
             if t.trimmed and self.windows.remember(t.key, x, y, width, height):
                 log.debug("Window %s now at %s,%s %sx%s", t.key, x, y, width, height)
+
+    def _desktop_output(self, on_line, dev: Device, proc: subprocess.Popen):
+        """Also watch for scrcpy's "New display: ... (id=N)", then open the Apps panel for it."""
+
+        def watch(line: str) -> None:
+            on_line(line)
+            if m := NEW_DISPLAY_RE.search(line):
+                self._spawn_desktop_apps(dev, int(m.group(1)), proc)
+
+        return watch
+
+    def _spawn_desktop_apps(self, dev: Device, display_id: int, desktop: subprocess.Popen) -> None:
+        if not self.control:
+            return
+        address, token = self.control
+        cmd = [
+            gui_python(), "-m", "phonnect", "_desktop_apps",
+            "--serial", dev.serial,
+            "--display", str(display_id),
+            "--pid", str(desktop.pid),
+            "--name", dev.label.rsplit(" (", 1)[0],
+        ]  # fmt: skip
+        child_env = dict(os.environ, ADB=self.adb.path, SCRCPY=self.scrcpy)
+        child_env["PHONNECT_CONTROL"] = f"{address} {token}"
+        try:
+            subprocess.Popen(
+                cmd,
+                env=child_env,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=NO_WINDOW,
+            )
+            log.info("Apps panel opened for the desktop (display %s)", display_id)
+        except OSError as exc:
+            log.warning("Could not open the Apps panel: %s", exc)
 
     def _scrcpy_output(self, tracked: TrackedWindow | None):
         def on_line(line: str) -> None:

@@ -43,6 +43,8 @@ class Config:
     # Pixels the taskbar shows and can't open apps) or "overlay" (experimental: Android's simulated
     # second screen, where apps open, but it froze and restarted Android on a Pixel 9 Pro).
     desktop_method: str = "virtual"
+    # The user ticked "Don't show this again" in the desktop mode prompt.
+    desktop_confirmed: bool = False
     # What each secondary mouse button does in mirror windows:
     # "app" (send the click to the app), "back", "home", "recents", "notifications" or "nothing".
     # Holding Shift always gives Back / Home / Recent apps / Notifications.

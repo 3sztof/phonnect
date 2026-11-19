@@ -93,9 +93,18 @@ To rotate just once without locking, press scrcpy's own **Alt+R** in the mirror 
 
 ### Desktop mode
 
-Opens Android's desktop experience in its own window, like plugging the phone into a monitor: a taskbar, an app drawer, and apps in resizable windows. It runs on a second screen, so the mirror window keeps showing the phone's own screen. Close the window to end it. **It's experimental**, and Phonnect says so each time it opens.
+Opens Android's desktop experience in its own window, like plugging the phone into a monitor: a taskbar, an app drawer, and apps in big-screen layouts. It runs on a second screen, so the mirror window keeps showing the phone's own screen. Close the window to end it. **It's experimental.**
 
-**Known problem on current Pixels (Android 16 and 17):** the desktop and its taskbar show, but clicking an app does nothing. It's a problem between Android and scrcpy's virtual screens ([scrcpy #6699](https://github.com/Genymobile/scrcpy/issues/6699), [#7048](https://github.com/Genymobile/scrcpy/issues/7048)); a fix for scrcpy is proposed ([#7055](https://github.com/Genymobile/scrcpy/pull/7055)). Apps opened another way (a notification, a shortcut) do show up. Phonnect will use scrcpy's fix once it's released.
+**Known problem on current Pixels (Android 16 and 17):** the desktop and its taskbar show, but clicking an app in the taskbar or app drawer does nothing. It's a problem between Android and scrcpy's virtual screens ([scrcpy #6699](https://github.com/Genymobile/scrcpy/issues/6699), [#7048](https://github.com/Genymobile/scrcpy/issues/7048)); a fix for scrcpy is proposed ([#7055](https://github.com/Genymobile/scrcpy/pull/7055)). Progress is tracked in [Phonnect issue #1](https://github.com/3sztof/phonnect/issues/1).
+
+**The workaround: the Apps panel.** Until that's fixed, Phonnect docks an **Apps panel** next to the desktop window:
+
+- search the phone's apps and double-click one (or press Enter) to open it on the desktop, full screen, or tick *Open in a window*;
+- *Open on the desktop* lists what's running there: **Switch to** brings an app back to the front, **Close** closes it, **Desktop** shows the desktop again.
+
+Apps opened this way have no title bars (the desktop's window management needs the same fix), so they can't be moved or resized; full screen plus *Switch to* works best. Nothing on the phone is changed.
+
+**It asks first.** Because it's a workaround, desktop mode explains all this in a prompt before it opens. Tick *Don't show this again* to skip it next time.
 
 **Experimental workaround, not recommended:** `"desktop_method": "overlay"` in the config file uses Android's *simulated second screen* (*Developer options → Simulate secondary displays*) instead, where apps do open. But on a Pixel 9 Pro (Android 17) it froze after about 20 seconds and Android restarted itself, and while it's on the phone shows a semi-transparent preview of the desktop that can't be hidden and may block PIN entry. Phonnect removes the simulated screen when the desktop window closes, on quit, or when the phone reconnects. **If the preview stays on the phone** (for example because the phone froze and dropped off): *Developer options → Simulate secondary displays → None* removes it. If the phone doesn't respond, restart it; the preview can take a little while to disappear after the restart.
 
@@ -178,6 +187,7 @@ Settings changed in the tray are saved immediately. You can also edit the file d
   "wifi_port_scan": true,
   "desktop_display": "1920x1080/160",
   "desktop_method": "virtual",
+  "desktop_confirmed": false,
   "mouse_buttons": {"right": "app", "middle": "home", "back": "back", "forward": "recents"},
   "audio": "off",
   "scrcpy_args": ["--stay-awake"],

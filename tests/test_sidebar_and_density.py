@@ -281,3 +281,23 @@ def test_simulated_second_screen_is_off_by_default(home):
     assert h.watcher.open_desktop(HW) == "started"
     assert "--new-display=1920x1080/160" in h.procs[-1].args
     assert fake.settings == {}, "the phone isn't touched"
+
+
+def test_desktop_mode_asks_first(home):
+    h = Harness(auto_usb=False)
+    h.tick(USB_PHONE)
+    asked = []
+    h.watcher.confirm_desktop = lambda: asked.append(True) or False
+    assert h.watcher.open_desktop_and_report(HW) == "cancelled"
+    assert not h.watcher.desktops, "cancelled: nothing opened"
+    h.watcher.confirm_desktop = lambda: asked.append(True) or True
+    assert h.watcher.open_desktop_and_report(HW) == "started"
+    assert h.watcher.open_desktop_and_report(HW) == "already open"
+    assert len(asked) == 2, "not asked again for a window that's already open"
+
+
+def test_apps_panel_opens_for_the_virtual_desktop(home):
+    from phonnect.watcher import NEW_DISPLAY_RE
+
+    m = NEW_DISPLAY_RE.search("[server] INFO: New display: 1920x1080/160 (id=17)")
+    assert m and m.group(1) == "17"

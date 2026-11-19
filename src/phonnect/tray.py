@@ -142,6 +142,7 @@ class TrayApp:
             attach_helpers(self.watcher)
             self.watcher.on_quit = self.quit
             self.watcher.on_show = self.show
+            self.watcher.confirm_desktop = self._confirm_desktop
         self.icon = icon_class(pystray)(
             "phonnect",
             icon=icons.tray_icon(initial, self._icon_key[1]),
@@ -662,6 +663,26 @@ class TrayApp:
             self.refresh()  # the window may have paired or connected a phone
 
         self._background(wait)
+
+    def _confirm_desktop(self) -> bool:
+        """The 'desktop mode is experimental' prompt (runs on a background thread)."""
+        overlay = self.config.desktop_method == "overlay"
+        if self.config.desktop_confirmed and not overlay:
+            return True
+        cmd = [gui_python(), "-m", "phonnect", "_dialog", "desktop", "--message", "overlay" if overlay else "-"]
+        try:
+            code = subprocess.run(cmd, creationflags=NO_WINDOW, stdin=subprocess.DEVNULL).returncode
+        except OSError as exc:
+            log.error("Could not show the desktop mode prompt: %s", exc)
+            code = 3
+        if code == 3:  # no Tk: say it in a notification instead
+            self.notify("Desktop mode is experimental: open apps from its Apps panel (see the docs).")
+            return True
+        if code == 10:
+            self.config.desktop_confirmed = True
+            self.config.save()
+            log.info("Setting desktop_confirmed = True (don't show the desktop mode prompt again)")
+        return code in (0, 10)
 
     def _disconnect_all(self) -> None:
         assert self.adb is not None
